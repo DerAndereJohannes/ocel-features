@@ -10,7 +10,8 @@ class Variants(Enum):
 
 def apply(log, variant='default', entity_list=None, feature_list=None):
     exe_variant = getattr(Variants, variant.upper(), None)
-    df = None
+    df, row_entity_ids = None, []
+
     if exe_variant is not None:
         fn, fv = exe_variant(log, entity_list, feature_list)
         df, row_entity_ids = d2p.conv_dict_to_pandas(fn, fv)
