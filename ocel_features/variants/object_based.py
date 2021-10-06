@@ -64,7 +64,31 @@ def extract_object_lifetime(feature_list, obj_dict, net, log):
                            - min(obj_time_list)).total_seconds()))
 
 
+def extract_object_unit_set_ratio(feature_list, obj_dict, net, log):
+    e_dict = ocel.get_events(log)
+    o_dict = ocel.get_objects(log)
+    feature_list.append(f'{_FEATURE_PREFIX}single_type_ratio')
+
+    for o_k, o_v in obj_dict.items():
+        o_events = net.nodes[o_k]['object_events']
+        counter = 0
+        total_events = len(o_events)
+        for e_k in o_events:
+            curr_event = e_dict[e_k]
+            obj_same_type = False
+            for obj in curr_event['ocel:omap']:
+                if o_k != obj and o_dict[o_k]['ocel:type'] \
+                   == o_dict[obj]['ocel:type']:
+                    obj_same_type = True
+                    break
+            if not obj_same_type:
+                counter = counter + 1
+
+        o_v.append(counter / total_events)
+
+
 class Object_Features(Enum):
     NEIGHBOUR_COUNT = extract_unique_neighbour_count
     ACTIVITY_EXISTENCE = extract_activity_existence
     OBJECT_LIFETIME = extract_object_lifetime
+    UNIT_SET_RATIO = extract_object_unit_set_ratio

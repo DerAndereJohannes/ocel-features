@@ -8,9 +8,9 @@ def main():
     omap_list_to_set(log)
 
     df, row_oids = extract(log, 'object_based',
-                           ['o1', 'o2', 'o3'],
+                           ['i1', 'i4', 'i6'],
                            ['neighbour_count', 'activity_existence',
-                            'object_lifetime'])
+                            'object_lifetime', 'unit_set_ratio'])
 
     print('df row IDs:', row_oids, '\n')
     print('resulting pandas dataframe:')
