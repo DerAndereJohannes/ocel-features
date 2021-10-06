@@ -21,6 +21,8 @@ def extract_object_features(log, obj_list=None, feature_list=None):
         curr_feature = getattr(Object_Features, feature.upper(), None)
         if curr_feature is not None:
             curr_feature(feature_names, obj_dict, net, log)
+        else:
+            print(f'WARNING: Object Feature "{feature}" not found. Skipping.')
 
     return feature_names, obj_dict
 
@@ -71,20 +73,35 @@ def extract_object_unit_set_ratio(feature_list, obj_dict, net, log):
 
     for o_k, o_v in obj_dict.items():
         o_events = net.nodes[o_k]['object_events']
-        counter = 0
+        total_counter = 0
         total_events = len(o_events)
         for e_k in o_events:
             curr_event = e_dict[e_k]
             obj_same_type = False
-            for obj in curr_event['ocel:omap']:
-                if o_k != obj and o_dict[o_k]['ocel:type'] \
-                   == o_dict[obj]['ocel:type']:
+            for other_o_k in curr_event['ocel:omap']:
+                if o_k != other_o_k and o_dict[o_k]['ocel:type'] \
+                   == o_dict[other_o_k]['ocel:type']:
                     obj_same_type = True
                     break
             if not obj_same_type:
-                counter = counter + 1
+                total_counter = total_counter + 1
 
-        o_v.append(counter / total_events)
+        o_v.append(total_counter / total_events)
+
+
+def extract_avg_object_event_interaction(feature_list, obj_dict, net, log):
+    e_dict = ocel.get_events(log)
+    feature_list.append(f'{_FEATURE_PREFIX}avg_obj_event_interaction')
+
+    for o_k, o_v in obj_dict.items():
+        o_events = net.nodes[o_k]['object_events']
+        total_counter = len(o_events) * -1  # subtract self
+        total_events = len(o_events)
+        for e_k in o_events:
+            curr_event = e_dict[e_k]
+            total_counter = total_counter + len(curr_event['ocel:omap'])
+
+        o_v.append(total_counter / total_events)
 
 
 class Object_Features(Enum):
@@ -92,3 +109,4 @@ class Object_Features(Enum):
     ACTIVITY_EXISTENCE = extract_activity_existence
     OBJECT_LIFETIME = extract_object_lifetime
     UNIT_SET_RATIO = extract_object_unit_set_ratio
+    AVG_OBJ_INTERACTION = extract_avg_object_event_interaction
