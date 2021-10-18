@@ -19,6 +19,7 @@ def create_obj_descendant_graph(log):
                 net.nodes[oid]['first_occurance'] = event['ocel:timestamp']
                 net.nodes[oid]['first_event'] = event_id
                 net.nodes[oid]['type'] = ocel_objects[oid]['ocel:type']
+                net.nodes[oid]['object_events'] = list()
                 net.nodes[oid]['descendant'] = set()
                 net.nodes[oid]['relative'] = set()
 
@@ -26,6 +27,7 @@ def create_obj_descendant_graph(log):
                 break
 
         for oid in event['ocel:omap']:
+            net.nodes[oid]['object_events'].append(event_id)
             # add all new edges between selected
             for oid2 in event['ocel:omap']:
 
@@ -131,8 +133,14 @@ def is_descendant(net, source, target):
     return target in net.nodes[source]['descendant']
 
 
-def get_obj_descendants(net):
-    subnets = {n: {'descendants': {n}, 'relative': set()} for n in net.nodes}
+def get_obj_descendants(net, obj_list=None):
+    if obj_list is None:
+        subnets = {n: {'descendants': {n}, 'relatives': set()}
+                   for n in net.nodes}
+    else:
+        subnets = {n: {'descendants': {n}, 'relatives': set()}
+                   for n in obj_list}
+
     for obj_n in subnets:
         descendants = subnets[obj_n]['descendants']
         old_neigh = descendants
@@ -154,7 +162,7 @@ def get_obj_descendants(net):
             for in_obj in in_edges:
                 if in_obj not in descendants \
                    and is_descendant(net, in_obj, node):
-                    subnets[obj_n]['relative'].add((in_obj, node))
+                    subnets[obj_n]['relatives'].add((in_obj, node))
 
         descendants.remove(obj_n)
         subnets[obj_n]['descendants'] = descendants

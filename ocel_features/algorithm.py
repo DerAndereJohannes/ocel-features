@@ -1,11 +1,13 @@
 from enum import Enum
 import ocel_features.variants.object_based as ob
+import ocel_features.variants.descendant_based as db
 import ocel_features.util.conv_dict_pandas as d2p
 
 
 class Variants(Enum):
     DEFAULT = ob.extract_object_features
     OBJECT_BASED = ob.extract_object_features
+    DESCENDANT_BASED = db.extract_descendant_features
 
 
 def apply(log, variant='default', entity_list=None, feature_list=None):
