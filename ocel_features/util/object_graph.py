@@ -8,6 +8,15 @@ def create_object_graph(log):
     ids_checked = set()
     obj_net = nx.Graph()
 
+    obj_net.add_nodes_from(list(ocel_objects.keys()))
+    for o_k, o_v in ocel_objects.items():
+        obj_net.add_node(o_k)
+
+        obj_net.nodes[o_k]['first_occurance'] = 0
+        obj_net.nodes[o_k]['first_event'] = None
+        obj_net.nodes[o_k]['object_events'] = []
+        obj_net.nodes[o_k]['type'] = ocel_objects[o_k]['ocel:type']
+
     for event_id in ocel_events:
         event = ocel_events[event_id]
         for oid in event['ocel:omap']:
@@ -20,9 +29,9 @@ def create_object_graph(log):
             # add first occured time and event attribute to the node
             if oid not in ids_checked:
                 ids_checked.add(oid)
+
                 obj_net.nodes[oid]['first_occurance'] = event['ocel:timestamp']
                 obj_net.nodes[oid]['first_event'] = event_id
-                obj_net.nodes[oid]['object_events'] = list()
                 obj_net.nodes[oid]['type'] = ocel_objects[oid]['ocel:type']
 
             obj_net.nodes[oid]['object_events'].append(event_id)

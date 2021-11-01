@@ -9,8 +9,13 @@ _FEATURE_PREFIX = 'obj:'
 
 def extract_object_features(log, obj_list=None, feature_list=None):
 
+    # Get all the Objects
     if obj_list is None:
         obj_list = ocel.get_objects(log)
+
+    # Get all the features
+    if feature_list is None:
+        feature_list = [f for f in vars(Object_Features) if f[0] != '_']
 
     net = create_object_graph(log)
 
@@ -62,8 +67,11 @@ def extract_object_lifetime(feature_list, obj_dict, net, log):
                          for a in net.nodes[o_k]['object_events']]
 
         # o_v.append(obj_time_list[-1] - obj_time_list[0])
-        o_v.append(max(0, (max(obj_time_list)
-                           - min(obj_time_list)).total_seconds()))
+        if len(obj_time_list) != 0:
+            o_v.append(max(0, (max(obj_time_list)
+                               - min(obj_time_list)).total_seconds()))
+        else:
+            o_v.append(0)
 
 
 def extract_object_unit_set_ratio(feature_list, obj_dict, net, log):
@@ -75,18 +83,21 @@ def extract_object_unit_set_ratio(feature_list, obj_dict, net, log):
         o_events = net.nodes[o_k]['object_events']
         total_counter = 0
         total_events = len(o_events)
-        for e_k in o_events:
-            curr_event = e_dict[e_k]
-            obj_same_type = False
-            for other_o_k in curr_event['ocel:omap']:
-                if o_k != other_o_k and o_dict[o_k]['ocel:type'] \
-                   == o_dict[other_o_k]['ocel:type']:
-                    obj_same_type = True
-                    break
-            if not obj_same_type:
-                total_counter = total_counter + 1
+        if total_events != 0:
+            for e_k in o_events:
+                curr_event = e_dict[e_k]
+                obj_same_type = False
+                for other_o_k in curr_event['ocel:omap']:
+                    if o_k != other_o_k and o_dict[o_k]['ocel:type'] \
+                     == o_dict[other_o_k]['ocel:type']:
+                        obj_same_type = True
+                        break
+                if not obj_same_type:
+                    total_counter = total_counter + 1
 
-        o_v.append(total_counter / total_events)
+            o_v.append(total_counter / total_events)
+        else:
+            o_v.append(0)
 
 
 def extract_avg_object_event_interaction(feature_list, obj_dict, net, log):
@@ -97,11 +108,14 @@ def extract_avg_object_event_interaction(feature_list, obj_dict, net, log):
         o_events = net.nodes[o_k]['object_events']
         total_counter = len(o_events) * -1  # subtract self
         total_events = len(o_events)
-        for e_k in o_events:
-            curr_event = e_dict[e_k]
-            total_counter = total_counter + len(curr_event['ocel:omap'])
+        if total_events != 0:
+            for e_k in o_events:
+                curr_event = e_dict[e_k]
+                total_counter = total_counter + len(curr_event['ocel:omap'])
 
-        o_v.append(total_counter / total_events)
+            o_v.append(total_counter / total_events)
+        else:
+            o_v.append(0)
 
 
 class Object_Features(Enum):

@@ -2,6 +2,7 @@ from enum import Enum
 import ocel_features.variants.object_based as ob
 import ocel_features.variants.descendant_based as db
 import ocel_features.util.conv_dict_pandas as d2p
+import ocel_features.util.ocel_alterations as oa
 
 
 class Variants(Enum):
@@ -12,6 +13,7 @@ class Variants(Enum):
 
 def apply(log, variant='default', entity_list=None, feature_list=None):
     exe_variant = getattr(Variants, variant.upper(), None)
+    oa.remove_empty_entities(log)
     df, row_entity_ids = None, []
 
     if exe_variant is not None:

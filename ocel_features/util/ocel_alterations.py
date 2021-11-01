@@ -15,3 +15,14 @@ def get_activity_names(log):
         activity_names.add(ev['ocel:activity'])
 
     return list(activity_names)
+
+
+def remove_empty_entities(log):
+    objs = ocel.get_objects(log)
+    events = ocel.get_events(log)
+    if "" in objs:
+        del objs[""]
+    if "" in events:
+        del events[""]
+
+    return log
