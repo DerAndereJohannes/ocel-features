@@ -1,4 +1,6 @@
 import ocel
+import sys
+from scalene import scalene_profiler
 from ocel_features.algorithm import apply as extract
 from ocel_features.util.ocel_alterations import omap_list_to_set
 
@@ -12,6 +14,8 @@ def main():
                            ['neighbour_count', 'avg_obj_interaction',
                             'object_lifetime', 'unit_set_ratio', 'asfk'])
 
+    # df, row_oids = extract(log, feature_list=['activity_existence_embed'])
+
     print('df row IDs:', row_oids, '\n')
     print('resulting pandas dataframe:')
     print(df)
@@ -21,4 +25,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) == 2:
+        scalene_profiler.start()
+        main()
+        scalene_profiler.stop()
+    else:
+        main()
