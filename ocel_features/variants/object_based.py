@@ -11,14 +11,6 @@ _FEATURE_PREFIX = 'obj:'
 
 def extract_object_features(log, obj_list=None, feature_list=None):
 
-    # Get all the Objects
-    if obj_list is None:
-        obj_list = ocel.get_objects(log)
-
-    # Get all the features
-    if feature_list is None:
-        feature_list = [f for f in vars(Object_Features) if f[0] != '_']
-
     net = create_object_graph(log)
 
     feature_names = list()
@@ -151,7 +143,7 @@ def extract_avg_object_event_interaction(feature_list, obj_dict, net, log):
 class Object_Features(Enum):
     NEIGHBOUR_COUNT = extract_unique_neighbour_count
     ACTIVITY_EXISTENCE = extract_activity_existence
-    ACTIVITY_EXISTENCE_EMBED = extract_activity_existence_embedding
+    _ACTIVITY_EXISTENCE_EMBED = extract_activity_existence_embedding
     OBJECT_LIFETIME = extract_object_lifetime
     UNIT_SET_RATIO = extract_object_unit_set_ratio
     AVG_OBJ_INTERACTION = extract_avg_object_event_interaction
