@@ -24,7 +24,7 @@ def apply(log, variant='default', entity_list=None, feature_list=None):
                        if o_v['ocel:type'] == obj_type]
     elif entity_list is None:
         entity_list = log['ocel:objects']
-    elif not isinstance(entity_list, []):
+    elif not isinstance(entity_list, list):
         raise InvalidObjectTypeException(
             f'"{entity_list}" is not an object type in this OCEL-Log.')
 
