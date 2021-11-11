@@ -11,14 +11,12 @@ def compute_cosine_similarity_matrix(df):
 def compute_histo_wasserstein_similarity(df):
     data_matrix = normalize(df.values)
     sim_matrix = np.zeros((data_matrix.shape[0], data_matrix.shape[0]))
-    print(sim_matrix)
 
     for i in range(sim_matrix.shape[0]):
         for j in range(sim_matrix.shape[0]):
             if i == j:
                 sim_matrix[i][j] = 1.0
             elif sim_matrix[i][j] == 0.0:
-                print(f'{i}, {j}')
                 sim = 1 - wasserstein_distance(data_matrix[i], data_matrix[j])
                 sim_matrix[i][j] = sim_matrix[j][i] = sim
 
