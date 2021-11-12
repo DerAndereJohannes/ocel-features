@@ -1,6 +1,7 @@
 import inspect
 import pandas as pd
 import numpy as np
+from sklearn.decomposition import PCA
 from ocel_features.util.object_graph import create_object_graph
 from ocel_features.util.ocel_alterations import get_activity_names
 
@@ -24,7 +25,6 @@ class Object_Based:
 
     # feature extraction methods
     def add_unique_neighbour_count(self):
-
         # control
         para_log = (func_name(),)
         if para_log in self._df.columns:
@@ -57,7 +57,7 @@ class Object_Based:
         e_dict = self._log['ocel:events']
         col_name = [f'{_FEATURE_PREFIX}activity:{an}' for an in log_an]
         row_count = len(self._df.index)
-        col_values = [np.zeros(row_count, dtype=np.bool8) for an in log_an]
+        col_values = [np.zeros(row_count, dtype=np.bool8) for _ in log_an]
 
         # extraction
         for i in range(row_count):
@@ -68,8 +68,42 @@ class Object_Based:
             for j in range(len(log_an)):
                 if log_an[j] in obj_an_set:
                     col_values[j][i] = 1
-                else:
-                    col_values[j][i] = 0
+
+        # add to df
+        self._op_log.append(para_log)
+        self._df[col_name] = col_values
+
+    def add_activity_existence_pca(self, n_components=None):
+        # parameter checking
+        log_an = get_activity_names(self._log)
+        if not isinstance(n_components, int):
+            n_components = max(3, int(len(log_an) / 4))
+
+        # control
+        para_log = (func_name(), n_components)
+        if para_log in self._df.columns:
+            print(f'[!] {para_log} already computed. Skipping..')
+            return
+
+        # df setup
+        e_dict = self._log['ocel:events']
+        col_name = [f'{_FEATURE_PREFIX}activity_embedd_pca:{comp}'
+                    for comp in range(n_components)]
+        row_count = len(self._df.index)
+        x_input = np.zeros((row_count, len(log_an)), dtype=np.bool8)
+
+        # extraction
+        for i in range(row_count):
+            oid = self._df.iloc[i, 0]
+            obj_an_set = {e_dict[a]['ocel:activity']
+                          for a in self._graph.nodes[oid]['object_events']}
+
+            for j in range(len(log_an)):
+                if log_an[j] in obj_an_set:
+                    x_input[i, j] = 1
+
+        an_embedding = PCA(n_components=n_components)
+        col_values = an_embedding.fit_transform(x_input)
 
         # add to df
         self._op_log.append(para_log)
@@ -120,7 +154,7 @@ class Object_Based:
         for i in range(row_count):
             oid = self._df.iloc[i, 0]
             o_events = self._graph.nodes[oid]['object_events']
-            total_counter = 0
+            tot_counter = 0
             total_events = len(o_events)
             if total_events != 0:
                 for e_k in o_events:
@@ -132,9 +166,9 @@ class Object_Based:
                             obj_same_type = True
                             break
                     if not obj_same_type:
-                        total_counter = total_counter + 1
+                        tot_counter = tot_counter + 1
 
-                col_values[i] = total_counter / total_events
+                col_values[i] = tot_counter / total_events
 
         # add to df
         self._op_log.append(para_log)
@@ -157,14 +191,14 @@ class Object_Based:
         for i in range(row_count):
             oid = self._df.iloc[i, 0]
             o_events = self._graph.nodes[oid]['object_events']
-            total_counter = len(o_events) * -1  # subtract self
+            tot_counter = len(o_events) * -1  # subtract self
             total_events = len(o_events)
             if total_events != 0:
                 for e_k in o_events:
                     curr_event = e_dict[e_k]
-                    total_counter = total_counter + len(curr_event['ocel:omap'])
+                    tot_counter = tot_counter + len(curr_event['ocel:omap'])
 
-                col_values[i] = total_counter / total_events
+                col_values[i] = tot_counter / total_events
 
         # add to df
         self._op_log.append(para_log)
