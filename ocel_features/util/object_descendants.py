@@ -1,5 +1,6 @@
 import ocel
 import networkx as nx
+from copy import deepcopy
 
 
 def create_obj_descendant_graph(log):
@@ -133,6 +134,7 @@ def is_descendant(net, source, target):
     return target in net.nodes[source]['descendant']
 
 
+
 def get_obj_descendants(net, obj_list=None):
     if obj_list is None:
         subnets = {n: {'descendants': {n}, 'relatives': set()}
@@ -164,10 +166,103 @@ def get_obj_descendants(net, obj_list=None):
                    and is_descendant(net, in_obj, node):
                     subnets[obj_n]['relatives'].add((in_obj, node))
 
-        descendants.remove(obj_n)
         subnets[obj_n]['descendants'] = descendants
 
     return subnets
+
+
+def get_obj_ancestors(net, obj_list=None):
+    if obj_list is None:
+        subnets = {n: {'ancestors': {n}}
+                   for n in net.nodes}
+    else:
+        subnets = {n: {'ancestors': {n}}
+                   for n in obj_list}
+    sorted_oids = [x for x in net.nodes]
+    sorted_oids.sort(key=lambda x : net.nodes[x]['first_occurance'])
+
+    for obj_n in sorted_oids:
+        descendants = subnets[obj_n]['ancestors']
+        old_neigh = descendants
+        new_neigh = set()
+
+        while len(new_neigh) != 0 or old_neigh is descendants:
+            new_neigh = set()
+            for obj in old_neigh:
+                for tup in net.in_edges(obj):
+                    neigh = tup[0]
+                    if neigh not in descendants:
+                        if len(subnets[neigh]['ancestors']) != 1:
+                            new_neigh |= subnets[neigh]['ancestors']
+                        elif is_descendant(net, neigh, obj) \
+                            and not same_init_event(net, neigh, obj):
+                            new_neigh.add(neigh)
+            descendants = descendants | new_neigh
+            old_neigh = new_neigh
+
+        subnets[obj_n]['ancestors'] = descendants
+
+    return subnets
+
+def get_lineages(graph):
+    # can be combined
+    descendants = get_obj_descendants(graph)
+    ancestors = get_obj_ancestors(graph)
+    lineages = {oid: None for oid in graph.nodes}
+
+    for oid in lineages:
+        lineages[oid] = {}
+        lineages[oid]['localities'] = descendants[oid]['descendants'] \
+                                        | ancestors[oid]['ancestors']
+
+    return lineages
+
+
+def _get_localities_recursive(descs):
+    localities = {oid: None for oid in descs}
+    desc_dict = deepcopy(descs)
+    total = len(localities) - 1
+    for i, oid in enumerate(localities):
+        print(f'{i} out of {total}')
+        localities[oid] = dict()
+        localities[oid]['localities'], _ = climb_up(desc_dict[oid]['relatives'], descs, set())
+
+    return localities
+
+
+def climb_up(relatives, desc_dict, seen):
+    to_add = set()
+    if not relatives:
+        return set()
+    for rel in relatives:
+        uarc = rel[0]
+        print(uarc)
+        if uarc not in seen:
+
+            to_add |= desc_dict[uarc]['descendants']
+            seen.add(uarc)
+            new_d, seen = climb_up(desc_dict[uarc]['relatives'], desc_dict, seen)
+            to_add |= new_d
+
+    return to_add, seen
+
+
+def get_unique_localities(localities):
+    unique_localitites = []
+
+    for lcl in localities.values():
+        if lcl['localities'] not in unique_localitites:
+            unique_localitites.append(lcl['localities'])
+
+    return unique_localitites
+
+
+
+
+
+
+
+
 
 
 def get_direct_descendants(net, obj_id):
