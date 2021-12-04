@@ -18,7 +18,7 @@
 \section{Document Format}
 The structure section will go over all the structures that are created in order for many of the feature extraction methods to function. Each structure will have information on input, context behind the structure and a sample image to demonstrate the output on a basic example.
 
-The Feature sections go over feature extraction methods explored throughout the thesis on the topic. All features are aimed at being very general, applicable to any input ocel log. The descriptions will include the input, structures used, output, context and a very small basic visualization based on the structure images that are found in the structures section. 
+The Feature sections go over feature extraction methods explored throughout the thesis on the topic. All features are aimed at being very general, applicable to any input ocel log. The descriptions will include the input, structures used, output, context and, if required, a very small basic visualization based on the examples that are found in the structures section. 
 )
 
 \section{Example OCEL}
@@ -86,6 +86,20 @@ The following log was taken from ... and will be used for the majority of exampl
 	\includegraphics[scale=0.5]{images/descendants.png}
 	\caption{Example of an Object Descendant Graph}
 	\label{fig:descendant-graph}
+\end{figure}
+
+
+\subsection{Object Lineage Graph}
+\textbf{Description -}\\
+\noindent\textbf{Context -}\\
+\noindent\textbf{Strengths}\\
+\noindent\textbf{Limitations}\\
+\noindent\textbf{Visual Example}
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.8]{images/lineage.png}
+	\caption{Example of a Lineage Graph}
+	\label{fig:lineage}
 \end{figure}
 
 \subsection{Event-Based}
@@ -175,7 +189,13 @@ This section includes features that are related to single objects. This means th
 \\
 
 \textbf{Visual example}
-yes
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.5]{images/obj-unc.png}
+	\caption{o1 has two unique neighbors. i1 and i2.}
+	\label{fig:obj-unc}
+\end{figure}
+
 \subsubsection{Object Type Interaction Count}
 \begin{center}
 	\begin{tabular}{| p{3cm} p{7cm} |}
@@ -194,7 +214,13 @@ yes
 \\
 
 \textbf{Visual example}
-yes
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.5]{images/obj-tic.png}
+	\caption{Object i6 has 5 neighbors. There is 1 of order, package, route and 2 are of type item}
+	\label{fig:obj-tic}
+\end{figure}
+
 \subsubsection{starting or ending object}
 \begin{center}
 	\begin{tabular}{| p{3cm} p{7cm} |}
@@ -233,7 +259,12 @@ need to update graph
 \\
 
 \textbf{Visual example}
-yes
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.2]{images/obj-dda.png}
+	\caption{P\_2 has two direct ascendants and one direct descendant}
+	\label{fig:obj-dda}
+\end{figure}
 
 \subsubsection{Lineage Level with total height of lineage}
 \begin{center}
@@ -253,7 +284,13 @@ yes
 \\
 
 \textbf{Visual example}
-yes
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.2]{images/obj-lvl.png}
+	\caption{P\_2 only has direct ancestors and neighbors. Therefore P\_2 sits at level 2 out of 3}
+	\label{fig:obj-lvl}
+\end{figure}
 
 \subsubsection{Object Wait time for specific event}
 \begin{center}
@@ -273,8 +310,6 @@ yes
 \\
 
 \textbf{Visual example}
-TODO
-
 \subsubsection{Object specific event directly follows}
 \begin{center}
 	\begin{tabular}{| p{3cm} p{7cm} |}
