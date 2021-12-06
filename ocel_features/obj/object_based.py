@@ -27,7 +27,7 @@ class Object_Based:
     def add_unique_neighbour_count(self):
         # control
         para_log = (func_name(),)
-        if para_log in self._df.columns:
+        if para_log in self._op_log:
             print(f'[!] {para_log} already computed. Skipping..')
             return
 
@@ -48,7 +48,7 @@ class Object_Based:
     def add_activity_existence(self):
         # control
         para_log = (func_name(),)
-        if para_log in self._df.columns:
+        if para_log in self._op_log:
             print(f'[!] {para_log} already computed. Skipping..')
             return
 
@@ -81,7 +81,7 @@ class Object_Based:
 
         # control
         para_log = (func_name(), n_components)
-        if para_log in self._df.columns:
+        if para_log in self._op_log:
             print(f'[!] {para_log} already computed. Skipping..')
             return
 
@@ -112,7 +112,7 @@ class Object_Based:
     def add_object_lifetime(self):
         # control
         para_log = (func_name(),)
-        if para_log in self._df.columns:
+        if para_log in self._op_log:
             print(f'[!] {para_log} already computed. Skipping..')
             return
 
@@ -139,7 +139,7 @@ class Object_Based:
     def add_obj_unit_set_ratio(self):
         # control
         para_log = (func_name(),)
-        if para_log in self._df.columns:
+        if para_log in self._op_log:
             print(f'[!] {para_log} already computed. Skipping..')
             return
 
@@ -177,7 +177,7 @@ class Object_Based:
     def add_avg_obj_event_interaction(self):
         # control
         para_log = (func_name(),)
-        if para_log in self._df.columns:
+        if para_log in self._op_log:
             print(f'[!] {para_log} already computed. Skipping..')
             return
 
@@ -199,6 +199,125 @@ class Object_Based:
                     tot_counter = tot_counter + len(curr_event['ocel:omap'])
 
                 col_values[i] = tot_counter / total_events
+
+        # add to df
+        self._op_log.append(para_log)
+        self._df[col_name] = col_values
+
+
+    def add_obj_type_interaction(self, obj_types=None):
+        # control
+        para_log = (func_name(), obj_types)
+        if para_log in self._op_log:
+            print(f'[!] {para_log} already computed. Skipping..')
+            return
+
+        # df setup
+        o_dict = self._log['ocel:objects']
+        all_types = self._log['ocel:global-log']['ocel:object-types']
+
+        if obj_types is None:
+            obj_types = all_types
+        else:
+            obj_types = [o_type for o_type in obj_types if o_type in all_types]
+
+        o_types = {o_type: i for i, o_type in
+                   enumerate(obj_types)}
+
+
+        col_name = [f'{_FEATURE_PREFIX}interaction_with:{ot}' for ot in o_types]
+        row_count = len(self._df.index)
+        col_values = [np.zeros(row_count, dtype=np.uint64) for _ in o_types]
+
+        # extraction
+        for i in range(row_count):
+            oid = self._df.iloc[i, 0]
+
+            for neigh in self._graph.neighbors(oid):
+                col_num = o_types[o_dict[neigh]['ocel:type']]
+                col_values[col_num][i] += 1
+
+        # add to df
+        self._op_log.append(para_log)
+        self._df[col_name] = col_values
+
+    def add_object_df(self):
+        # control
+        para_log = (func_name(),)
+        if para_log in self._op_log:
+            print(f'[!] {para_log} already computed. Skipping..')
+            return
+
+        # df setup
+        log_an = get_activity_names(self._log)
+        an_product = [(an1, an2) for an1 in log_an
+                      for an2 in log_an if an1 != an2]
+        an_index = {anp: i for i, anp in enumerate(an_product)}
+
+        e_dict = self._log['ocel:events']
+        col_name = [f'{_FEATURE_PREFIX}df:{df[0]}:{df[1]}' for df in an_product]
+        row_count = len(self._df.index)
+        col_values = [np.zeros(row_count, dtype=np.uint64) for _ in an_product]
+
+        # extraction
+        for i in range(row_count):
+            oid = self._df.iloc[i, 0]
+            obj_an = [e_dict[a]['ocel:activity']
+                          for a in self._graph.nodes[oid]['object_events']]
+
+            for a_i in range(len(obj_an[:-1])):
+                df_rel = (obj_an[a_i], obj_an[a_i + 1])
+                col_values[an_index[df_rel]][oid] += 1
+
+        # add to df
+        self._op_log.append(para_log)
+        self._df[col_name] = col_values
+
+
+    def add_obj_wait_time(self, source, target):
+        # control
+        para_log = (func_name(), source, target)
+        if para_log in self._op_log:
+            print(f'[!] {para_log} already computed. Skipping..')
+            return
+
+        # df setup
+        log_an = get_activity_names(self._log)
+        if source not in log_an or target not in log_an:
+            print(f'[!] {source} -> {target} is invalid (check names).')
+            return
+        e_dict = self._log['ocel:events']
+        col_name = f'{_FEATURE_PREFIX}{source}:{target}:wait_time'
+        row_count = len(self._df.index)
+        col_values = np.zeros(row_count, dtype=np.uint64)
+
+        # extraction
+        for i in range(row_count):
+            oid = self._df.iloc[i, 0]
+            obj_events = self._graph.nodes[oid]['object_events']
+            obj_an = {e_dict[a]['ocel:activity'] for a in obj_events}
+
+            if not (source not in obj_an or target not in obj_an):
+                src_time = None
+                tar_time = None
+                # takes the time of the first instance of src -> tar
+                for event in obj_events:
+                    if event['ocel:activity'] == target:
+                        if not src_time:
+                            tar_time = event['ocel:timestamp']
+                    elif event['ocel:activity'] == source:
+                        if not src_time:
+                            src_time = event['ocel:timestamp']
+
+                    if src_time and tar_time:
+                        break
+
+                # making sure there are values
+                if not src_time and not tar_time:
+                    result = (tar_time - src_time).total_seconds()
+
+                    if result > 0:
+                        col_values[i] = result
 
         # add to df
         self._op_log.append(para_log)
