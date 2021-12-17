@@ -204,7 +204,6 @@ class Object_Based:
         self._op_log.append(para_log)
         self._df[col_name] = col_values
 
-
     def add_obj_type_interaction(self, obj_types=None):
         # control
         para_log = (func_name(), obj_types)
@@ -224,8 +223,8 @@ class Object_Based:
         o_types = {o_type: i for i, o_type in
                    enumerate(obj_types)}
 
-
-        col_name = [f'{_FEATURE_PREFIX}interaction_with:{ot}' for ot in o_types]
+        col_name = [f'{_FEATURE_PREFIX}interaction_with:{ot}'
+                    for ot in o_types]
         row_count = len(self._df.index)
         col_values = [np.zeros(row_count, dtype=np.uint64) for _ in o_types]
 
@@ -255,7 +254,8 @@ class Object_Based:
         an_index = {anp: i for i, anp in enumerate(an_product)}
 
         e_dict = self._log['ocel:events']
-        col_name = [f'{_FEATURE_PREFIX}df:{df[0]}:{df[1]}' for df in an_product]
+        col_name = [f'{_FEATURE_PREFIX}df:{df[0]}:{df[1]}'
+                    for df in an_product]
         row_count = len(self._df.index)
         col_values = [np.zeros(row_count, dtype=np.uint64) for _ in an_product]
 
@@ -263,7 +263,7 @@ class Object_Based:
         for i in range(row_count):
             oid = self._df.iloc[i, 0]
             obj_an = [e_dict[a]['ocel:activity']
-                          for a in self._graph.nodes[oid]['object_events']]
+                      for a in self._graph.nodes[oid]['object_events']]
 
             for a_i in range(len(obj_an[:-1])):
                 df_rel = (obj_an[a_i], obj_an[a_i + 1])
@@ -272,7 +272,6 @@ class Object_Based:
         # add to df
         self._op_log.append(para_log)
         self._df[col_name] = col_values
-
 
     def add_obj_wait_time(self, source, target):
         # control

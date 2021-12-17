@@ -90,10 +90,21 @@ The following log was taken from ... and will be used for the majority of exampl
 
 
 \subsection{Object Lineage Graph}
-\textbf{Description -}\\
-\noindent\textbf{Context -}\\
+\textbf{Description -} The Object Lineage Graph is a representation of the entire object space of the event log in terms of a directed, labelled property graph. It is a natural progression of the object and descendants graphs in terms of defining each of the edges that exist in terms of a well defined property label graph. This can be formally defined by using triplets where a relationship gets defined by a source, relation, target. ie. (source\_obj, relation, target\_obj)\\
+\noindent\textbf{Context -} The goal of this graph is to use the information gained from the ocel log on top of the object relation graph in order to separate and define the edges such that they can be handled differently. Also if the main focus of a feature is specific to a few types of relations, the remaining relations can be ignored. TOCONSIDER: add relations w.r.t the finishing event? Let users define a relationship based on certain event? Does it make sense to define an ontology?\\
 \noindent\textbf{Strengths}\\
+\begin{enumerate}
+	\item Allows for the generation of the graph to be completed through 1 iteration of the ocel log.
+	\item Allows for full use of the edges that exist in the entire ocel log.
+	\item Allows for separation and filtering of particular relations.
+	\item Creates a hierarchy of relations between objects in terms of "closeness" or "relatedness" to each other.
+	\item Very simple to parallelize the generation of the graph by prioritizing the edges found at the earliest stage.
+\end{enumerate}
 \noindent\textbf{Limitations}\\
+\begin{enumerate}
+	\item The graph only takes into account the relations with respect to object generation.
+	\item As the relations are mainly defined by the starting event, relations with respect to all other events are listed under "unrelated" which may not be the case.
+\end{enumerate}
 \noindent\textbf{Visual Example}
 \begin{figure}[h]
 	\centering
