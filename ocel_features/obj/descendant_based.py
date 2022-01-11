@@ -50,7 +50,6 @@ class Descendant_Based:
         self._op_log.append(para_log)
         self._df[col_name] = col_values
 
-
     def add_total_descendant_count(self):
         para_log = (func_name(),)
         if para_log in self._df.columns:
@@ -71,7 +70,6 @@ class Descendant_Based:
         # add to df
         self._op_log.append(para_log)
         self._df[col_name] = col_values
-
 
     def add_obj_type_descendant_count(self):
         para_log = (func_name(),)
@@ -96,11 +94,9 @@ class Descendant_Based:
             for j, val in enumerate(counter):
                 col_values[j, i] = val
 
-
         # add to df
         self._op_log.append(para_log)
         self._df[col_name] = col_values
-
 
     def add_descendant_relative_ratio(self):
         para_log = (func_name(),)
@@ -123,8 +119,6 @@ class Descendant_Based:
         # add to df
         self._op_log.append(para_log)
         self._df[col_name] = col_values
-
-
 
     # df methods
     def df_full(self):
