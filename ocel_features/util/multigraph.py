@@ -17,12 +17,8 @@ def create_multi_graph(log, relations):
             if oid not in ids_checked:
                 ids_checked.add(oid)
                 net.add_node(oid)
-                net.nodes[oid]['first_occurance'] = event['ocel:timestamp']
-                net.nodes[oid]['first_event'] = event_id
                 net.nodes[oid]['type'] = ocel_objects[oid]['ocel:type']
                 net.nodes[oid]['object_events'] = list()
-                net.nodes[oid]['descendant'] = set()
-                net.nodes[oid]['ancestor'] = set()
             net.nodes[oid]['object_events'].append(event)
 
     for event_id in ocel_events:
@@ -38,6 +34,7 @@ def create_multi_graph(log, relations):
     return net
 
 
+# HELPER FUNCTIONS
 def same_index_event(net, id_1, id_2, index):
     return net.nodes[id_1]['object_events'][index] is \
         net.nodes[id_2]['object_events'][index]
@@ -49,7 +46,9 @@ def same_index_time(net, id_1, id_2, index):
 
 
 def get_younger_obj(net, id_1, id_2):
-    if net.nodes[id_1]['first_occurance'] < net.nodes[id_2]['first_occurance']:
+    obj1_birth = net.nodes[id_1]['object_events'][0]['ocel:timestamp']
+    obj2_birth = net.nodes[id_2]['object_events'][0]['ocel:timestamp']
+    if obj1_birth < obj2_birth:
         return id_1
     else:
         return id_2
@@ -86,9 +85,9 @@ def add_descendants(net, event, src, tar):
             and not same_index_event(net, src, tar, 0):
         if src == get_younger_obj(net, src, tar):
             net.add_edge(src, tar, descendant=True)
-            net.add_edge(tar, src, relative=True)
+            net.add_edge(tar, src, ancestor=True)
         else:
-            net.add_edge(src, tar, relative=True)
+            net.add_edge(src, tar, ancestor=True)
             net.add_edge(tar, src, descendant=True)
 
 
@@ -104,19 +103,29 @@ def add_codeath(net, event, src, tar):
         net.add_edge(tar, src, codeath=True)
 
 
-def add_heirloom(net, event, src, tar):
+def add_merge(net, event, src, tar):
+    if net.nodes[src]['type'] == net.nodes[tar]['type']:
+        src_events = net.nodes[src]['object_events']
+        tar_events = net.nodes[tar]['object_events']
+        if src_events[-1] in tar_events[:-1]:
+            net.add_edge(src, tar, merge=True)
+
+
+def add_inheritance(net, event, src, tar):
     if has_init_node(net, src, tar, event):
         death, birth = has_death_and_birth(net, src, tar)
         if death is not None:
-            net.add_edge(death, birth, heirloom=True)
+            net.add_edge(death, birth, inheritance=True)
 
 
+# MAIN FUNCTIONS
 class Relations(Enum):
     INTERACTS = add_interaction
     DESCENDANTS = add_descendants
     COBIRTH = add_cobirth
     CODEATH = add_codeath
-    HEIRLOOM = add_heirloom
+    MERGE = add_merge
+    INHERITANCE = add_inheritance
 
 
 def create_object_centric_graph(log, relations=None):
