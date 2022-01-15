@@ -1,6 +1,6 @@
 import ocel
 import ocel_features.variants.object_based as ob
-from ocel_features.util.conv_dict_pandas import conv_dict_to_pandas
+from ocel_features.util.data_organization import conv_dict_to_pandas
 from ocel_features.util.ocel_alterations import omap_list_to_set
 
 

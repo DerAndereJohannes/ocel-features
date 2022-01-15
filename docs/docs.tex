@@ -113,7 +113,47 @@ The following log was taken from ... and will be used for the majority of exampl
 	\label{fig:lineage}
 \end{figure}
 
-\subsection{Event-Based}
+\section{Relationships}
+\subsection{Interaction}
+\noindent\textbf{Description -} The most basic type of relationship. The interaction relationship is applied when an object interacts in the same event as the other. In a directed graph, the arc goes both ways.
+
+\noindent\textbf{Definition -}
+\subsection{Descendants/Ancestors}
+\noindent\textbf{Description -} An object $o_1$ is a descendant of another if the other object $o_2$ is an ancestor of the object. An ancestor means that the object participated in the event where the descendant is first seen in the log. The only exception being when both objects start with the same event. 
+
+\noindent\textbf{Definition -}
+\subsection{Co-Birth}
+\noindent\textbf{Description -} Two objects have the co-birth relation with each other when both have the same starting event.
+
+
+\noindent\textbf{Definition -}
+\subsection{Co-Death}
+\noindent\textbf{Description -} Two objects have the co-birth relation with each other when both have the same ending event.
+
+
+\noindent\textbf{Definition -}
+\subsection{Merge}
+\noindent\textbf{Description -} An object $o_1$ merges with object $o_2$ if both objects are of the same type, $o_2$ participates in $o_1$'s final event and $o_2$ still has future events.
+
+
+\noindent\textbf{Definition -}
+\subsection{Inheritance}
+\noindent\textbf{Description -} An object $o_1$ inherits from object $o_2$ if the starting event of $o_1$ is the same as the ending event from $o_2$.
+
+\noindent\textbf{Definition -}
+\subsection{Killer}
+\noindent\textbf{Description -} A killer object $o_1$ kills object $o_2$ if it participates in the last event of $o_2$ while not dying at the same time
+
+\noindent\textbf{Definition -}
+\subsection{Peeling}
+\noindent\textbf{Description -} An object $o_1$ peels $o_2$ when events between both objects are only executed between the two objects.
+
+\noindent\textbf{Definition -}
+\subsection{Minion}
+\noindent\textbf{Description -} An object $o_1$ is a minion of $o_2$ if all events participated by $o_1$ are also participated by $o_2$. $o_2$ must also have other events without $o_1$.
+
+\noindent\textbf{Definition -}
+
 \section{Object Based Features}
 \subsection{Point wise Features}
 This section includes features that are related to single objects. This means that each object produces its own vector which can be used for further computation.
@@ -258,15 +298,15 @@ need to update graph
 		\hline
 		\textbf{Property} & \textbf{Value}\\
 		\hline
-		User Input & None\\
-		Structure Input & Object Lineage Graph\\
-		Output & uint64 number for each direction\\
-		Function Name & TBA\\
+		User Input & List of relationships\\
+		Structure Input & Object-Centric Multi Graph\\
+		Output & uint64 number for each relationship\\
+		Function Name & add\_direct\_rel\_count\\
 		\hline
 	\end{tabular}
 \end{center}
 
-\textbf{Context -} The goal of this feature is to understand from where the object originates and where the object leads to.
+\textbf{Context -} The goal of this feature is to collect basic counting information for the number of times an object interacts in a particular way.
 \\
 
 \textbf{Visual example}
@@ -330,7 +370,7 @@ need to update graph
 		User Input & None\\
 		Structure Input & None\\
 		Output & uint64 for DF in the events (with frequency information)\\
-		Function Name & TBA\\
+		Function Name & add\_object\_wait\_time\\
 		\hline
 	\end{tabular}
 \end{center}
@@ -338,8 +378,77 @@ need to update graph
 \textbf{Context -} The goal of this feature is to differentiate between how objects live in the ocel log. Allows to separate objects with different behaviors for further analysis
 \\
 
+\subsubsection{Lonewolf Object}
+\begin{center}
+	\begin{tabular}{| p{3cm} p{7cm} |}
+		\hline
+		\textbf{Property} & \textbf{Value}\\
+		\hline
+		User Input & None\\
+		Structure Input & None\\
+		Output & bool8 whether the object completely operates by itself\\
+		Function Name & add\_is\_lonewolf\\
+		\hline
+	\end{tabular}
+\end{center}
+
+\textbf{Context -} The goal of this feature is to tell if an object is operating by itself.
+\\
+
+
+\textbf{Context -} The goal of this feature is to tell if an object is operating by itself.
+\\
+
 \subsection{Local Features}
 \subsection{Global Features}
+\subsubsection{Object Type Count}
+\begin{center}
+	\begin{tabular}{| p{3cm} p{7cm} |}
+		\hline
+		\textbf{Property} & \textbf{Value}\\
+		\hline
+		User Input & None\\
+		Structure Input & None\\
+		Output & uint64 numbers for each type\\
+		Function Name & add\_global\_obj\_type\_count\\
+		\hline
+	\end{tabular}
+\end{center}
+
+\textbf{Context -} The goal of this feature is to have an overview of how many instances of each type of object exists in the log.\\
+
+\subsubsection{Global Object Type Count}
+\begin{center}
+	\begin{tabular}{| p{3cm} p{7cm} |}
+		\hline
+		\textbf{Property} & \textbf{Value}\\
+		\hline
+		User Input & None\\
+		Structure Input & Object Lineage Graph\\
+		Output & uint64 numbers for each type\\
+		Function Name & add\_global\_obj\_type\_count\\
+		\hline
+	\end{tabular}
+\end{center}
+
+\textbf{Context -} The goal of this feature is to have an overview of how many instances of each type of object exists in the log.\\
+
+\subsubsection{Basic Statistics on attribute values per object type}
+\begin{center}
+	\begin{tabular}{| p{3cm} p{7cm} |}
+		\hline
+		\textbf{Property} & \textbf{Value}\\
+		\hline
+		User Input & None\\
+		Structure Input & None\\
+		Output & uint64/float64 numbers for each type and their attributes\\
+		Function Name & add\_global\_obj\_attribute\_statistics\\
+		\hline
+	\end{tabular}
+\end{center}
+
+\textbf{Context -} The goal of this feature is to have a brief overview of how many objects in the event log have an attribute along with a valid value (ie. non NaN or None). It gives a brief overview of the amount of data the objects in the log hold. Added statistics: count, mean, std. dev, median, mode.\\
+
 \section{Event Based Features}
 \subsection{Point wise Features}
 
@@ -396,6 +505,23 @@ need to update graph
 
 \subsection{Local Features}
 \subsection{Global Features}
+
+\subsubsection{Object Interactions per event statistics}
+\begin{center}
+	\begin{tabular}{| p{3cm} p{7cm} |}
+		\hline
+		\textbf{Property} & \textbf{Value}\\
+		\hline
+		User Input & None\\
+		Structure Input & None\\
+		Output & uint64/float64 numbers for each type and their attributes\\
+		Function Name & TBA\\
+		\hline
+	\end{tabular}
+\end{center}
+
+\textbf{Context -} The goal of this feature is to get an overall view the variety of events and their interaction patterns in the OCEL log. 
+\\
 
 \subsubsection{Time Series: rate of change of number of events occurring in the same time window}
 \begin{center}
