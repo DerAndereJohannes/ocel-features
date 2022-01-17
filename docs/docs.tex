@@ -4,6 +4,7 @@
 \usepackage{algorithm2e}
 \usepackage{amsmath}
 \usepackage{graphicx}
+\usepackage{mathtools}
 
 \title{OCEL Feature Extraction Documentation}
 \date{November 2021 - ??? 2022}
@@ -114,45 +115,101 @@ The following log was taken from ... and will be used for the majority of exampl
 \end{figure}
 
 \section{Relationships}
+hint: I wrote context and the definitions for some of the relationships to gauge the correctness of them before fully committing to writing it for all of them. Let me know if they are ok like that!
+\subsection{Math extra prerequisites}
+hint: in addition to the standard ocel definitions
+$$OE(o) = \{ e \in E \mid o \in \pi_{omap}(e) \}$$
 \subsection{Interaction}
-\noindent\textbf{Description -} The most basic type of relationship. The interaction relationship is applied when an object interacts in the same event as the other. In a directed graph, the arc goes both ways.
+\noindent\textbf{Description -} The most basic type of relationship. The interaction relationship is applied when an object interacts in the same event as the other. In a directed graph, the arc goes both ways. \\
+
+\noindent\textbf{Context -} The relationship gives a very basic ability to see which objects interact with which. Objects that do not interact with each other \emph{directly} could still affect them \emph{indirectly}. \\
 
 \noindent\textbf{Definition -}
+\begin{equation}
+	REL_{interacts}(o_1, o_2) =
+	\begin{cases*}
+		1 & $\exists e \in OE(o_1) \colon o_2 \in \pi_{omap}(e)$\\
+		0 & else
+	\end{cases*}
+\end{equation}
 \subsection{Descendants/Ancestors}
-\noindent\textbf{Description -} An object $o_1$ is a descendant of another if the other object $o_2$ is an ancestor of the object. An ancestor means that the object participated in the event where the descendant is first seen in the log. The only exception being when both objects start with the same event. 
+\noindent\textbf{Description -} An object $o_1$ is a descendant of another if the other object $o_2$ is an ancestor of the object. An ancestor means that the object participated in the event where the descendant is first seen in the log. The only exception being when both objects start with the same event. \\
+
+\noindent\textbf{Context -} Object descendants and ancestors show a type of lineage within the object space. It shows which objects were the input and output and extracts implicit knowledge of what is required for each type of process instance on an object level. \\
 
 \noindent\textbf{Definition -}
 \subsection{Co-Birth}
-\noindent\textbf{Description -} Two objects have the co-birth relation with each other when both have the same starting event.
+\noindent\textbf{Description -} Two objects have the co-birth relation with each other when both have the same starting event. \\
+
+\noindent\textbf{Context -} The co-birth relationship extracts knowledge regarding which objects are necessary to create in the same event. It can for example be used to find events which act as a factory for new objects along with providing all the additional information that relates the new objects.\\
 
 
 \noindent\textbf{Definition -}
 \subsection{Co-Death}
-\noindent\textbf{Description -} Two objects have the co-birth relation with each other when both have the same ending event.
+\noindent\textbf{Description -} Two objects have the co-birth relation with each other when both have the same ending event. \\
+
+\noindent\textbf{Context -} The co-death relationship is the obvious successor to the co-birth relationship. It provides the same sort of information except for the context being geared more towards which events consume and kill many objects at once.\\
+
+\noindent\textbf{Definition -}
+\subsection{co-life}
+\noindent\textbf{Description -} co-life is a more restrictive version of co-birth and co-death as it provides a relationship where objects have the exact same event lifecycle. \\
+
+\noindent\textbf{Context -} The co-life relationship is the strongest kind of dependence relationship that exists. It highlights objects that participate in every event together from the start to the end. The relationship can portray redundancy in the events that allow for objects to fail without reducing the performance.\\
 
 
 \noindent\textbf{Definition -}
 \subsection{Merge}
-\noindent\textbf{Description -} An object $o_1$ merges with object $o_2$ if both objects are of the same type, $o_2$ participates in $o_1$'s final event and $o_2$ still has future events.
+\noindent\textbf{Description -} An object $o_1$ merges with object $o_2$ if both objects are of the same type, $o_2$ participates in $o_1$'s final event and $o_2$ still has future events. \\
+
+\noindent\textbf{Context -} The merge relationship looks at intra-object-type relations and if they pass on their responsibilities to a different object of the same time. For example, if a user were to order two items in two separate orders, the orders may be merged with each other in order to simplify the shipping process.\\
 
 
 \noindent\textbf{Definition -}
-\subsection{Inheritance}
-\noindent\textbf{Description -} An object $o_1$ inherits from object $o_2$ if the starting event of $o_1$ is the same as the ending event from $o_2$.
+\subsection{Inheritance (call this sacrifice?)}
+\noindent\textbf{Description -} An object $o_1$ inherits from object $o_2$ if the starting event of $o_1$ is the same as the ending event from $o_2$.\\
+
+\noindent\textbf{Context -} This relationship shows which objects sacrifice themselves in order to create new object(s). This can be used for example in a manufacturing process where a copper object and a tin object can create a bronze object. After the event, the tin and copper no longer exist, but a new bronze object is created.\\
 
 \noindent\textbf{Definition -}
 \subsection{Killer}
-\noindent\textbf{Description -} A killer object $o_1$ kills object $o_2$ if it participates in the last event of $o_2$ while not dying at the same time
+\noindent\textbf{Description -} A killer object $o_1$ kills object $o_2$ if it participates in the last event of $o_2$ while not dying at the same time.\\
+
+\noindent\textbf{Context -} As opposed to the Merge relationship, the killer relationship looks at inter-object-type interactions. \\
 
 \noindent\textbf{Definition -}
-\subsection{Peeling}
-\noindent\textbf{Description -} An object $o_1$ peels $o_2$ when events between both objects are only executed between the two objects.
+\begin{equation}
+	REL_{killer}(o_1, o_2) =
+	\begin{cases*}
+		1 & $end(o_2) \in OE(o_1) \wedge end(o_1) \neq end(o_2)$ \\ 
+		0 & else
+	\end{cases*}
+\end{equation}
+\subsection{Peeler (Peels)}
+\noindent\textbf{Description -} An object $o_1$ peels $o_2$ when events between both objects are only executed between the two objects.\\
+
+\noindent\textbf{Context -} The relationship can be useful for finding events in processes which are completely dependent on a small, very specific number of objects. It can also be an indicator that there is a lack of resources in a particular role or resources are collaborating very close with each other. \\
 
 \noindent\textbf{Definition -}
-\subsection{Minion}
-\noindent\textbf{Description -} An object $o_1$ is a minion of $o_2$ if all events participated by $o_1$ are also participated by $o_2$. $o_2$ must also have other events without $o_1$.
+\begin{equation}
+	REL_{peels}(o_1, o_2) =
+	\begin{cases*}
+		1 & $\forall_{\{o_1, o_2\} \subseteq \pi_{omap}(e)}e \in OE(o_1) \colon \pi_{omap}(e) = \{o_1, o_2\}$ \\ 
+		0 & else
+	\end{cases*}
+\end{equation}
+\subsection{Minion Object (MinionOf)}
+\noindent\textbf{Description -} An object $o_1$ is a minion of $o_2$ if all events participated by $o_1$ are also participated by $o_2$. $o_2$ must also have other events without $o_1$.\\
+
+\noindent\textbf{Context -} The relationship can be useful for finding objects that are reliant on other objects to function. They are completely dependent on the activity of a different object. This can be used in eg. inefficiencies of a particular resource, not being able to act independently. It can also be used to see what each instance of a process explicitly requires in order to get a job done.\\
 
 \noindent\textbf{Definition -}
+\begin{equation}
+	REL_{minion}(o_1, o_2) =
+	\begin{cases*}
+		1 & $OE(o_1) \subset OE(o_2)$ \\
+		0 & else
+	\end{cases*}
+\end{equation}
 
 \section{Object Based Features}
 \subsection{Point wise Features}
