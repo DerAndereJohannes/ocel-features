@@ -31,13 +31,14 @@ def get_basic_stats(col_name_pre, series):
     return names_added, values_added
 
 
-def equal_width_bins():
-    pass
+def equal_frequency_bins(series, freq):
+    return [int(i/freq) for i in len(series)]
 
 
-def equal_frequency_bins():
-    pass
+def time_bins(series, timediff):
+    return [int((ts - series[0]) / timediff) for ts in series]
 
 
-def equal_time_bins():
-    pass
+def equal_time_width_bins(series):
+    time_width = (series[-1] - series[0]) / len(series)
+    return time_bins(series, time_width)

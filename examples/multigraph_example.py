@@ -19,7 +19,7 @@ label_convert = {
 def main():
     log = ocel.import_log('logs/actual-min.jsonocel')
     omap_list_to_set(log)
-    rels = [mg.Relations.MERGE, mg.Relations.INTERACTS]
+    rels = [mg.Relations.MERGE, mg.Relations.DESCENDANTS]
     rel_graph = mg.create_object_centric_graph(log, rels)
 
     print(list(rel_graph.nodes))
