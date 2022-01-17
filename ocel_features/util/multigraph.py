@@ -4,6 +4,9 @@ import networkx as nx
 
 
 def create_multi_graph(log, relations):
+    # remove duplicate functions
+    rels = {rel.value[1] for rel in relations}
+
     ocel_events = ocel.get_events(log)
     ocel_objects = ocel.get_objects(log)
     ids_checked = set()
@@ -28,7 +31,7 @@ def create_multi_graph(log, relations):
             # add all new edges between selected
             for oid2 in event['ocel:omap']:
                 if oid is not oid2:
-                    for rel in relations:
+                    for rel in rels:
                         rel(net, event, oid, oid2)
 
     return net
@@ -120,12 +123,13 @@ def add_inheritance(net, event, src, tar):
 
 # MAIN FUNCTIONS
 class Relations(Enum):
-    INTERACTS = add_interaction
-    DESCENDANTS = add_descendants
-    COBIRTH = add_cobirth
-    CODEATH = add_codeath
-    MERGE = add_merge
-    INHERITANCE = add_inheritance
+    INTERACTS = ("interacts", add_interaction)
+    DESCENDANTS = ("descendant", add_descendants)
+    ANCESTORS = ("ancestor", add_descendants)
+    COBIRTH = ("cobirth", add_cobirth)
+    CODEATH = ("codeath", add_codeath)
+    MERGE = ("merge", add_merge)
+    INHERITANCE = ("inheritance", add_inheritance)
 
 
 def create_object_centric_graph(log, relations=None):

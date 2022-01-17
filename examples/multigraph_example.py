@@ -1,8 +1,11 @@
 import ocel
 import networkx as nx
 import matplotlib.pyplot as plt
-from ocel_features.util.ocel_alterations import omap_list_to_set
 import ocel_features.util.multigraph as mg
+import ocel_features.util.local_helper as lh
+
+from pprint import pprint
+from ocel_features.util.ocel_alterations import omap_list_to_set
 
 
 label_convert = {
@@ -24,6 +27,9 @@ def main():
 
     print(list(rel_graph.nodes))
     print(list(rel_graph.edges))
+    localities = lh.obj_relationship_localities(rel_graph, rels)
+    pprint(localities)
+    pprint(lh.get_unique_relationship_localities(localities, rels))
 
     # print([f"{k}, {v}" for k, v in rel_graph.nodes.items()])
 
