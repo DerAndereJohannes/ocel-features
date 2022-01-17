@@ -29,7 +29,7 @@ def main():
     print(list(rel_graph.edges))
     localities = lh.obj_relationship_localities(rel_graph, rels)
     pprint(localities)
-    pprint(lh.get_unique_relationship_localities(localities, rels))
+    pprint(lh.unique_relations_to_objects(localities, rels))
 
     # print([f"{k}, {v}" for k, v in rel_graph.nodes.items()])
 

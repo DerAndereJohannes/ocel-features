@@ -28,12 +28,27 @@ def obj_relationship_localities(net, rels):
     return localities
 
 
-def get_unique_relationship_localities(localities, rels):
+def unique_relationship_localities(localities, rels):
     uloc = {rel.value[0]: set() for rel in rels}
 
     for o_rels in localities.values():
         for o_rel in o_rels:
             if o_rel in uloc and o_rels[o_rel]:
                 uloc[o_rel].add(o_rels[o_rel])
+
+    return uloc
+
+
+def unique_relations_to_objects(localities, rels):
+    uloc = {rel.value[0]: dict() for rel in rels}
+
+    for o_id, o_rels in localities.items():
+        for o_rel in o_rels:
+            if o_rel in uloc and o_rels[o_rel]:
+                o_id_set = o_rels[o_rel]
+                if o_id_set in uloc[o_rel]:
+                    uloc[o_rel][o_id_set].add(o_id)
+                else:
+                    uloc[o_rel][o_id_set] = {o_id}
 
     return uloc
