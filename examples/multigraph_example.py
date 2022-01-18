@@ -14,15 +14,19 @@ label_convert = {
     'ancestor': 'an',
     'cobirth': 'cb',
     'codeath': 'cd',
+    'colife': 'cl',
     'merge': 'me',
-    'inheritance': 'ih'
+    'inheritance': 'ih',
+    'minion': 'mi',
+    'peeler': 'pe',
+    'consumes': 'co'
 }
 
 
 def main():
     log = ocel.import_log('logs/actual-min.jsonocel')
     omap_list_to_set(log)
-    rels = [mg.Relations.MERGE, mg.Relations.DESCENDANTS]
+    rels = [mg.Relations.PEELER]
     rel_graph = mg.create_object_centric_graph(log, rels)
 
     print(list(rel_graph.nodes))

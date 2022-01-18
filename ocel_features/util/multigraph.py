@@ -1,6 +1,6 @@
-from enum import Enum
 import ocel
 import networkx as nx
+from enum import Enum
 
 
 def create_multi_graph(log, relations):
@@ -106,12 +106,30 @@ def add_codeath(net, event, src, tar):
         net.add_edge(tar, src, codeath=True)
 
 
+def add_colife(net, event, src, tar):
+    src_events = net.nodes[src]['object_events']
+    tar_events = net.nodes[tar]['object_events']
+
+    if src_events == tar_events:
+        net.add_edge(src, tar, colife=True)
+        net.add_edge(tar, src, colife=True)
+
+
 def add_merge(net, event, src, tar):
     if net.nodes[src]['type'] == net.nodes[tar]['type']:
         src_events = net.nodes[src]['object_events']
         tar_events = net.nodes[tar]['object_events']
         if src_events[-1] in tar_events[:-1]:
             net.add_edge(src, tar, merge=True)
+
+
+def add_consumes(net, event, src, tar):
+    if net.nodes[src]['type'] != net.nodes[tar]['type']:
+        src_events = net.nodes[src]['object_events']
+        tar_events = net.nodes[tar]['object_events']
+
+        if tar_events[-1] in src_events[:-1]:
+            net.add_edge(src, tar, consumes=True)
 
 
 def add_inheritance(net, event, src, tar):
@@ -121,6 +139,27 @@ def add_inheritance(net, event, src, tar):
             net.add_edge(death, birth, inheritance=True)
 
 
+def add_minion(net, event, src, tar):
+    src_events = net.nodes[src]['object_events']
+    tar_events = net.nodes[tar]['object_events']
+
+    if all(x in src_events for x in tar_events) \
+       and len(tar_events) < len(src_events):
+        net.add_edge(tar, src, minion=True)
+
+
+# Relationship requires a different format to be efficient
+def add_peeler(net, event, src, tar):
+    src_events = net.nodes[src]['object_events']
+
+    for e in src_events:
+        if tar in e['ocel:omap'] and not e['ocel:omap'] == {src, tar}:
+            return
+
+    net.add_edge(src, tar, peeler=True)
+    net.add_edge(src, tar, peeler=True)
+
+
 # MAIN FUNCTIONS
 class Relations(Enum):
     INTERACTS = ("interacts", add_interaction)
@@ -128,8 +167,12 @@ class Relations(Enum):
     ANCESTORS = ("ancestor", add_descendants)
     COBIRTH = ("cobirth", add_cobirth)
     CODEATH = ("codeath", add_codeath)
+    COLIFE = ("colife", add_colife)
     MERGE = ("merge", add_merge)
     INHERITANCE = ("inheritance", add_inheritance)
+    MINION = ("minion", add_minion)
+    PEELER = ("peeler", add_peeler)
+    CONSUMES = ("consumes", add_consumes)
 
 
 def create_object_centric_graph(log, relations=None):
