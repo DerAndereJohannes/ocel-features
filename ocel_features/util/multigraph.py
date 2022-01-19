@@ -2,10 +2,12 @@ import ocel
 import networkx as nx
 from enum import Enum
 
+_RELATION_DELIMITER = '2'
+_SHORT_LENGTH = 3
 
 def create_multi_graph(log, relations):
     # remove duplicate functions
-    rels = {rel.value[1] for rel in relations}
+    #rels = {rel.value[1] for rel in relations}
 
     ocel_events = ocel.get_events(log)
     ocel_objects = ocel.get_objects(log)
@@ -31,8 +33,8 @@ def create_multi_graph(log, relations):
             # add all new edges between selected
             for oid2 in event['ocel:omap']:
                 if oid is not oid2:
-                    for rel in rels:
-                        rel(net, event, oid, oid2)
+                    for rel in relations:
+                        execute_relations(net, event, oid, oid2, rel)
 
     return net
 
@@ -77,106 +79,198 @@ def is_descendant(net, source, target):
     return target in net.nodes[source]['descendant']
 
 
+def execute_relations(net, event, src, tar, rel):
+    rel_name = Relations(rel).name
+    rel1 = rel2 = None
+    if _RELATION_DELIMITER in rel_name:
+        rel1, rel2 = split_multi_rel(rel_name)
+    else:
+        rel1 = rel_name
+    
+    rel.value[0](net, event, src, tar, (rel1, rel2))
+
+
+def split_multi_rel(rel_name):
+    return rel_name.split(_RELATION_DELIMITER)
+
+
+def relations_to_relnames(rels):
+    rel_set = set()
+
+    for rel in rels:
+        rel_name = Relations(rel).name
+        if _RELATION_DELIMITER in rel_name:
+            rel_set |= set(split_multi_rel(rel_name))
+        else:
+            rel_set.add(rel_name)
+
+    return rel_set
+
+
+
+def add_directed_edge(net, event, src, tar, rel_names):
+    if not net.has_edge(src,tar):
+        net.add_edge(src,tar)
+
+    rel = rel_names[0]
+
+    if not rel in net[src][tar]:
+        net[src][tar][rel] = [event]
+    else:
+        net[src][tar][rel].append(event)
+
+
+def add_undirected_edge(net, event, src, tar, rel_names):
+    if not (net.has_edge(src,tar) or net.has_edge(tar, src)):
+        net.add_edge(src,tar)
+        net.add_edge(tar, src)
+
+    rel1, rel2 = rel_names
+    if rel2 is None:
+        rel2 = rel1
+
+    # add the event to both of the relations
+    if not rel1 in net[src][tar]:
+        net[src][tar][rel1] = [event]
+    else:
+        net[src][tar][rel1].append(event)
+
+    if not rel2 in net[tar][src]:
+        net[tar][src][rel2] = [event]
+    else:
+        net[tar][src][rel2].append(event)
+
+
 # RELATIONSHIP TYPES
-def add_interaction(net, event, src, tar):
-    net.add_edge(src, tar, interacts=True)
-    net.add_edge(tar, src, interacts=True)
+def add_interaction(net, event, src, tar, rel_names):
+    add_undirected_edge(net, event, src, tar, rel_names)
+    # net.add_edge(src, tar, interacts=True)
+    # net.add_edge(tar, src, interacts=True)
 
 
-def add_descendants(net, event, src, tar):
+def add_descendants(net, event, src, tar, rel_names):
     if has_init_node(net, src, tar, event) \
             and not same_index_event(net, src, tar, 0):
         if src == get_younger_obj(net, src, tar):
-            net.add_edge(src, tar, descendant=True)
-            net.add_edge(tar, src, ancestor=True)
+            add_directed_edge(net, event, src, tar, rel_names)
+            # net.add_edge(src, tar, descendant=True)
         else:
-            net.add_edge(src, tar, ancestor=True)
-            net.add_edge(tar, src, descendant=True)
+            add_directed_edge(net, event, tar, src, rel_names)
+            # net.add_edge(tar, src, descendant=True)
 
 
-def add_cobirth(net, event, src, tar):
+def add_ancestors(net, event, src, tar, rel_names):
+    if has_init_node(net, src, tar, event) \
+            and not same_index_event(net, src, tar, 0):
+        if src == get_younger_obj(net, src, tar):
+            add_directed_edge(net, event, tar, src, rel_names)
+        else:
+            add_directed_edge(net, event, src, tar, rel_names)
+
+
+def add_lineage(net, event, src, tar, rel_names):
+    if has_init_node(net, src, tar, event) \
+            and not same_index_event(net, src, tar, 0):
+        if src == get_younger_obj(net, src, tar):
+            add_undirected_edge(net, event, tar, src, rel_names)
+        else:
+            add_undirected_edge(net, event, src, tar, rel_names)
+
+
+def add_cobirth(net, event, src, tar, rel_names):
     if same_index_event(net, src, tar, 0):
-        net.add_edge(src, tar, cobirth=True)
-        net.add_edge(tar, src, cobirth=True)
+        add_undirected_edge(net, event, src, tar, rel_names)
 
 
-def add_codeath(net, event, src, tar):
+def add_codeath(net, event, src, tar, rel_names):
     if same_index_event(net, src, tar, -1):
-        net.add_edge(src, tar, codeath=True)
-        net.add_edge(tar, src, codeath=True)
+        add_undirected_edge(net, event, src, tar, rel_names)
 
 
-def add_colife(net, event, src, tar):
+def add_colife(net, event, src, tar, rel_names):
     src_events = net.nodes[src]['object_events']
     tar_events = net.nodes[tar]['object_events']
 
     if src_events == tar_events:
-        net.add_edge(src, tar, colife=True)
-        net.add_edge(tar, src, colife=True)
+        add_undirected_edge(net, event, src, tar, rel_names)
 
 
-def add_merge(net, event, src, tar):
+def add_merge(net, event, src, tar, rel_names):
     if net.nodes[src]['type'] == net.nodes[tar]['type']:
         src_events = net.nodes[src]['object_events']
         tar_events = net.nodes[tar]['object_events']
         if src_events[-1] in tar_events[:-1]:
-            net.add_edge(src, tar, merge=True)
+            add_directed_edge(net, event, src, tar, rel_names)
+            # net.add_edge(src, tar, merge=True)
 
 
-def add_consumes(net, event, src, tar):
+def add_consumes(net, event, src, tar, rel_names):
     if net.nodes[src]['type'] != net.nodes[tar]['type']:
         src_events = net.nodes[src]['object_events']
         tar_events = net.nodes[tar]['object_events']
 
         if tar_events[-1] in src_events[:-1]:
-            net.add_edge(src, tar, consumes=True)
+            add_directed_edge(net, event, src, tar, rel_names)
+            # net.add_edge(src, tar, consumes=True)
 
 
-def add_inheritance(net, event, src, tar):
+def add_inheritance(net, event, src, tar, rel_names):
     if has_init_node(net, src, tar, event):
         death, birth = has_death_and_birth(net, src, tar)
         if death is not None:
-            net.add_edge(death, birth, inheritance=True)
+            add_directed_edge(net, event, death, birth, rel_names)
 
 
-def add_minion(net, event, src, tar):
+def add_minion(net, event, src, tar, rel_names):
     src_events = net.nodes[src]['object_events']
     tar_events = net.nodes[tar]['object_events']
 
     if all(x in src_events for x in tar_events) \
        and len(tar_events) < len(src_events):
-        net.add_edge(tar, src, minion=True)
+        add_directed_edge(net, event, tar, src, rel_names)
+        # net.add_edge(tar, src, minion=True)
 
 
 # Relationship requires a different format to be efficient
-def add_peeler(net, event, src, tar):
+def add_peeler(net, event, src, tar, rel_names):
     src_events = net.nodes[src]['object_events']
 
     for e in src_events:
         if tar in e['ocel:omap'] and not e['ocel:omap'] == {src, tar}:
             return
 
-    net.add_edge(src, tar, peeler=True)
-    net.add_edge(src, tar, peeler=True)
+    add_undirected_edge(net, event, src, tar, rel_names)
+    # net.add_edge(src, tar, peeler=True)
+    # net.add_edge(src, tar, peeler=True)
 
 
 # MAIN FUNCTIONS
 class Relations(Enum):
-    INTERACTS = ("interacts", add_interaction)
-    DESCENDANTS = ("descendant", add_descendants)
-    ANCESTORS = ("ancestor", add_descendants)
-    COBIRTH = ("cobirth", add_cobirth)
-    CODEATH = ("codeath", add_codeath)
-    COLIFE = ("colife", add_colife)
-    MERGE = ("merge", add_merge)
-    INHERITANCE = ("inheritance", add_inheritance)
-    MINION = ("minion", add_minion)
-    PEELER = ("peeler", add_peeler)
-    CONSUMES = ("consumes", add_consumes)
+    INTERACTS = (add_interaction, )
+    DESCENDANTS = (add_descendants, )
+    ANCESTORS = (add_ancestors, )
+    ANCESTORS2DESCENDANTS = (add_lineage, )
+    COBIRTH = (add_cobirth, )
+    CODEATH = (add_codeath, )
+    COLIFE = (add_colife, )
+    MERGE = (add_merge, )
+    INHERITANCE = (add_inheritance, )
+    MINION = (add_minion, )
+    PEELER = (add_peeler, )
+    CONSUMES = (add_consumes, )
+
+
+def relation_shorthand(rel):
+    if isinstance(rel, str):
+        return rel[:_SHORT_LENGTH]
+    elif isinstance(rel, Relations):
+        return Relation(rel.value).name[:_SHORT_LENGTH]
+    else:
+        return None
 
 
 def create_object_centric_graph(log, relations=None):
     if relations is None:
-        relations = [Relations.DESCENDANTS]
+        relations = [Relations.ANCESTORS2DESCENDANTS]
 
     return create_multi_graph(log, relations)

@@ -9,24 +9,24 @@ from ocel_features.util.ocel_alterations import omap_list_to_set
 
 
 label_convert = {
-    'interacts': 'in',
-    'descendant': 'de',
-    'ancestor': 'an',
-    'cobirth': 'cb',
-    'codeath': 'cd',
-    'colife': 'cl',
-    'merge': 'me',
-    'inheritance': 'ih',
-    'minion': 'mi',
-    'peeler': 'pe',
-    'consumes': 'co'
+    'INTERACTS': 'in',
+    'DESCENDANTS': 'de',
+    'ANCESTORS': 'an',
+    'COBIRTH': 'cb',
+    'CODEATH': 'cd',
+    'COLIFE': 'cl',
+    'MERGE': 'me',
+    'INHERITANCE': 'ih',
+    'MINION': 'mi',
+    'PEELER': 'pe',
+    'CONSUMES': 'co'
 }
 
 
 def main():
     log = ocel.import_log('logs/actual-min.jsonocel')
     omap_list_to_set(log)
-    rels = [mg.Relations.PEELER]
+    rels = [mg.Relations.ANCESTORS2DESCENDANTS]
     rel_graph = mg.create_object_centric_graph(log, rels)
 
     print(list(rel_graph.nodes))
@@ -46,8 +46,10 @@ def show_graph_plt(net):
     edge_labels = {}
     for u, v in net.edges():
         if (u, v) not in edge_labels and (v, u) not in edge_labels:
-            uv = [label_convert[x] for x in net.get_edge_data(u, v, [])]
-            vu = [label_convert[x] for x in net.get_edge_data(v, u, [])]
+            uv = [mg.relation_shorthand(x) for x in net.get_edge_data(u, v, [])]
+            vu = [mg.relation_shorthand(x) for x in net.get_edge_data(v, u, [])]
+            # uv = [label_convert[x] for x in net.get_edge_data(u, v, [])]
+            # vu = [label_convert[x] for x in net.get_edge_data(v, u, [])]
             edge_labels[u, v] = f'{u}->{v}:{uv}, {vu}'
 
     plt.figure()

@@ -1,6 +1,9 @@
+from ocel_features.util.multigraph import Relations, relations_to_relnames
+
 def obj_relationship_localities(net, rels):
     # setup dicts and make sure no duplicated relations
-    rels = {rel.value[0] for rel in rels}
+    rels = relations_to_relnames(rels)
+
     localities = {}
     for n in net.nodes:
         localities[n] = {rel: set({n}) for rel in rels}
@@ -29,7 +32,8 @@ def obj_relationship_localities(net, rels):
 
 
 def unique_relationship_localities(localities, rels):
-    uloc = {rel.value[0]: set() for rel in rels}
+    rel_names = relations_to_relnames(rels)
+    uloc = {rel: set() for rel in rel_names}
 
     for o_rels in localities.values():
         for o_rel in o_rels:
@@ -40,7 +44,8 @@ def unique_relationship_localities(localities, rels):
 
 
 def unique_relations_to_objects(localities, rels):
-    uloc = {rel.value[0]: dict() for rel in rels}
+    rel_names = relations_to_relnames(rels)
+    uloc = {rel: dict() for rel in rel_names}
 
     for o_id, o_rels in localities.items():
         for o_rel in o_rels:
