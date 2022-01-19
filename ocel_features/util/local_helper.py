@@ -1,4 +1,5 @@
-from ocel_features.util.multigraph import Relations, relations_to_relnames
+from ocel_features.util.multigraph import relations_to_relnames
+
 
 def obj_relationship_localities(net, rels):
     # setup dicts and make sure no duplicated relations

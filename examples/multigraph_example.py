@@ -1,11 +1,11 @@
 import ocel
 import networkx as nx
 import matplotlib.pyplot as plt
-import ocel_features.util.multigraph as mg
 import ocel_features.util.local_helper as lh
-
 from pprint import pprint
 from ocel_features.util.ocel_alterations import omap_list_to_set
+from ocel_features.util.multigraph import Relations, \
+    create_object_centric_graph, relation_shorthand
 
 
 label_convert = {
@@ -26,8 +26,8 @@ label_convert = {
 def main():
     log = ocel.import_log('logs/actual-min.jsonocel')
     omap_list_to_set(log)
-    rels = [mg.Relations.ANCESTORS2DESCENDANTS]
-    rel_graph = mg.create_object_centric_graph(log, rels)
+    rels = [Relations.ANCESTORS2DESCENDANTS]
+    rel_graph = create_object_centric_graph(log, rels)
 
     print(list(rel_graph.nodes))
     print(list(rel_graph.edges))
@@ -46,10 +46,8 @@ def show_graph_plt(net):
     edge_labels = {}
     for u, v in net.edges():
         if (u, v) not in edge_labels and (v, u) not in edge_labels:
-            uv = [mg.relation_shorthand(x) for x in net.get_edge_data(u, v, [])]
-            vu = [mg.relation_shorthand(x) for x in net.get_edge_data(v, u, [])]
-            # uv = [label_convert[x] for x in net.get_edge_data(u, v, [])]
-            # vu = [label_convert[x] for x in net.get_edge_data(v, u, [])]
+            uv = [relation_shorthand(x) for x in net.get_edge_data(u, v, [])]
+            vu = [relation_shorthand(x) for x in net.get_edge_data(v, u, [])]
             edge_labels[u, v] = f'{u}->{v}:{uv}, {vu}'
 
     plt.figure()

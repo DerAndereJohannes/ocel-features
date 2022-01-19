@@ -5,10 +5,8 @@ from enum import Enum
 _RELATION_DELIMITER = '2'
 _SHORT_LENGTH = 3
 
-def create_multi_graph(log, relations):
-    # remove duplicate functions
-    #rels = {rel.value[1] for rel in relations}
 
+def create_multi_graph(log, relations):
     ocel_events = ocel.get_events(log)
     ocel_objects = ocel.get_objects(log)
     ids_checked = set()
@@ -86,7 +84,7 @@ def execute_relations(net, event, src, tar, rel):
         rel1, rel2 = split_multi_rel(rel_name)
     else:
         rel1 = rel_name
-    
+
     rel.value[0](net, event, src, tar, (rel1, rel2))
 
 
@@ -107,22 +105,21 @@ def relations_to_relnames(rels):
     return rel_set
 
 
-
 def add_directed_edge(net, event, src, tar, rel_names):
-    if not net.has_edge(src,tar):
-        net.add_edge(src,tar)
+    if not net.has_edge(src, tar):
+        net.add_edge(src, tar)
 
     rel = rel_names[0]
 
-    if not rel in net[src][tar]:
+    if rel not in net[src][tar]:
         net[src][tar][rel] = [event]
     else:
         net[src][tar][rel].append(event)
 
 
 def add_undirected_edge(net, event, src, tar, rel_names):
-    if not (net.has_edge(src,tar) or net.has_edge(tar, src)):
-        net.add_edge(src,tar)
+    if not (net.has_edge(src, tar) or net.has_edge(tar, src)):
+        net.add_edge(src, tar)
         net.add_edge(tar, src)
 
     rel1, rel2 = rel_names
@@ -130,12 +127,12 @@ def add_undirected_edge(net, event, src, tar, rel_names):
         rel2 = rel1
 
     # add the event to both of the relations
-    if not rel1 in net[src][tar]:
+    if rel1 not in net[src][tar]:
         net[src][tar][rel1] = [event]
     else:
         net[src][tar][rel1].append(event)
 
-    if not rel2 in net[tar][src]:
+    if rel2 not in net[tar][src]:
         net[tar][src][rel2] = [event]
     else:
         net[tar][src][rel2].append(event)
@@ -264,7 +261,7 @@ def relation_shorthand(rel):
     if isinstance(rel, str):
         return rel[:_SHORT_LENGTH]
     elif isinstance(rel, Relations):
-        return Relation(rel.value).name[:_SHORT_LENGTH]
+        return Relations(rel.value).name[:_SHORT_LENGTH]
     else:
         return None
 
