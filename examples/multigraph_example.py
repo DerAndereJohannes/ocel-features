@@ -26,13 +26,13 @@ label_convert = {
 def main():
     log = ocel.import_log('logs/actual-min.jsonocel')
     omap_list_to_set(log)
-    rels = [Relations.ANCESTORS2DESCENDANTS]
+    rels = [Relations.ANCESTORS]
     rel_graph = create_object_centric_graph(log, rels)
 
     print(list(rel_graph.nodes))
     print(list(rel_graph.edges))
     localities = lh.obj_relationship_localities(rel_graph, rels)
-    pprint(localities)
+    # pprint(localities)
     pprint(lh.unique_relations_to_objects(localities, rels))
 
     # print([f"{k}, {v}" for k, v in rel_graph.nodes.items()])

@@ -22,7 +22,7 @@ def create_multi_graph(log, relations):
                 net.add_node(oid)
                 net.nodes[oid]['type'] = ocel_objects[oid]['ocel:type']
                 net.nodes[oid]['object_events'] = list()
-            net.nodes[oid]['object_events'].append(event)
+            net.nodes[oid]['object_events'].append(event_id)
 
     for event_id in ocel_events:
         event = ocel_events[event_id]
@@ -32,26 +32,34 @@ def create_multi_graph(log, relations):
             for oid2 in event['ocel:omap']:
                 if oid is not oid2:
                     for rel in relations:
-                        execute_relations(net, event, oid, oid2, rel)
+                        exe_relations(net, log, event_id, oid, oid2, rel)
 
     return net
 
 
 # HELPER FUNCTIONS
+def get_event_contents(net, log, eid):
+    return log['ocel:events'][eid]
+
+
+def get_eid_from_obj(net, log, oid, index):
+    return net.nodes[oid]['object_events'][index]
+
+
+def event_from_obj(net, log, oid, index):
+    eid = get_eid_from_obj(net, log, oid, index)
+    return get_event_contents(net, log, eid)
+
+
 def same_index_event(net, id_1, id_2, index):
     return net.nodes[id_1]['object_events'][index] is \
         net.nodes[id_2]['object_events'][index]
 
 
-def same_index_time(net, id_1, id_2, index):
-    return net.nodes[id_1]['object_events'][index]['ocel:timestamp'] == \
-        net.nodes[id_2]['object_events'][index]['ocel:timestamp']
-
-
-def get_younger_obj(net, id_1, id_2):
-    obj1_birth = net.nodes[id_1]['object_events'][0]['ocel:timestamp']
-    obj2_birth = net.nodes[id_2]['object_events'][0]['ocel:timestamp']
-    if obj1_birth < obj2_birth:
+def get_younger_obj(net, log, id_1, id_2):
+    obj1_b = event_from_obj(net, log, id_1, 0)['ocel:timestamp']
+    obj2_b = event_from_obj(net, log, id_2, 0)['ocel:timestamp']
+    if obj1_b < obj2_b:
         return id_1
     else:
         return id_2
@@ -73,11 +81,7 @@ def has_death_and_birth(net, id_1, id_2):
         return None, None
 
 
-def is_descendant(net, source, target):
-    return target in net.nodes[source]['descendant']
-
-
-def execute_relations(net, event, src, tar, rel):
+def exe_relations(net, log, event, src, tar, rel):
     rel_name = Relations(rel).name
     rel1 = rel2 = None
     if _RELATION_DELIMITER in rel_name:
@@ -85,7 +89,7 @@ def execute_relations(net, event, src, tar, rel):
     else:
         rel1 = rel_name
 
-    rel.value[0](net, event, src, tar, (rel1, rel2))
+    rel.value[0](net, log, event, src, tar, (rel1, rel2))
 
 
 def split_multi_rel(rel_name):
@@ -141,50 +145,46 @@ def add_undirected_edge(net, event, src, tar, rel_names):
 # RELATIONSHIP TYPES
 def add_interaction(net, event, src, tar, rel_names):
     add_undirected_edge(net, event, src, tar, rel_names)
-    # net.add_edge(src, tar, interacts=True)
-    # net.add_edge(tar, src, interacts=True)
 
 
-def add_descendants(net, event, src, tar, rel_names):
+def add_descendants(net, log, event, src, tar, rel_names):
     if has_init_node(net, src, tar, event) \
             and not same_index_event(net, src, tar, 0):
-        if src == get_younger_obj(net, src, tar):
+        if src == get_younger_obj(net, log, src, tar):
             add_directed_edge(net, event, src, tar, rel_names)
-            # net.add_edge(src, tar, descendant=True)
         else:
             add_directed_edge(net, event, tar, src, rel_names)
-            # net.add_edge(tar, src, descendant=True)
 
 
-def add_ancestors(net, event, src, tar, rel_names):
+def add_ancestors(net, log, event, src, tar, rel_names):
     if has_init_node(net, src, tar, event) \
             and not same_index_event(net, src, tar, 0):
-        if src == get_younger_obj(net, src, tar):
+        if src == get_younger_obj(net, log, src, tar):
             add_directed_edge(net, event, tar, src, rel_names)
         else:
             add_directed_edge(net, event, src, tar, rel_names)
 
 
-def add_lineage(net, event, src, tar, rel_names):
+def add_lineage(net, log, event, src, tar, rel_names):
     if has_init_node(net, src, tar, event) \
             and not same_index_event(net, src, tar, 0):
-        if src == get_younger_obj(net, src, tar):
+        if src == get_younger_obj(net, log, src, tar):
             add_undirected_edge(net, event, tar, src, rel_names)
         else:
             add_undirected_edge(net, event, src, tar, rel_names)
 
 
-def add_cobirth(net, event, src, tar, rel_names):
+def add_cobirth(net, log, event, src, tar, rel_names):
     if same_index_event(net, src, tar, 0):
         add_undirected_edge(net, event, src, tar, rel_names)
 
 
-def add_codeath(net, event, src, tar, rel_names):
+def add_codeath(net, log, event, src, tar, rel_names):
     if same_index_event(net, src, tar, -1):
         add_undirected_edge(net, event, src, tar, rel_names)
 
 
-def add_colife(net, event, src, tar, rel_names):
+def add_colife(net, log, event, src, tar, rel_names):
     src_events = net.nodes[src]['object_events']
     tar_events = net.nodes[tar]['object_events']
 
@@ -192,7 +192,7 @@ def add_colife(net, event, src, tar, rel_names):
         add_undirected_edge(net, event, src, tar, rel_names)
 
 
-def add_merge(net, event, src, tar, rel_names):
+def add_merge(net, log, event, src, tar, rel_names):
     if net.nodes[src]['type'] == net.nodes[tar]['type']:
         src_events = net.nodes[src]['object_events']
         tar_events = net.nodes[tar]['object_events']
@@ -201,7 +201,7 @@ def add_merge(net, event, src, tar, rel_names):
             # net.add_edge(src, tar, merge=True)
 
 
-def add_consumes(net, event, src, tar, rel_names):
+def add_consumes(net, log, event, src, tar, rel_names):
     if net.nodes[src]['type'] != net.nodes[tar]['type']:
         src_events = net.nodes[src]['object_events']
         tar_events = net.nodes[tar]['object_events']
@@ -211,14 +211,14 @@ def add_consumes(net, event, src, tar, rel_names):
             # net.add_edge(src, tar, consumes=True)
 
 
-def add_inheritance(net, event, src, tar, rel_names):
+def add_inheritance(net, log, event, src, tar, rel_names):
     if has_init_node(net, src, tar, event):
         death, birth = has_death_and_birth(net, src, tar)
         if death is not None:
             add_directed_edge(net, event, death, birth, rel_names)
 
 
-def add_minion(net, event, src, tar, rel_names):
+def add_minion(net, log, event, src, tar, rel_names):
     src_events = net.nodes[src]['object_events']
     tar_events = net.nodes[tar]['object_events']
 
@@ -229,7 +229,7 @@ def add_minion(net, event, src, tar, rel_names):
 
 
 # Relationship requires a different format to be efficient
-def add_peeler(net, event, src, tar, rel_names):
+def add_peeler(net, log, event, src, tar, rel_names):
     src_events = net.nodes[src]['object_events']
 
     for e in src_events:

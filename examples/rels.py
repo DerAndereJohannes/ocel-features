@@ -1,10 +1,13 @@
-import networkx as nx
+import ocel
+from ocel_features.obj.event_point import Event_Based
+
 
 def main():
-    g = nx.DiGraph()
-    g.add_edge(1,2, d=True)
-    g.add_edge(2,1, a=True)
-    g.add_edge(2,3, cb=True)
-    g.add_edge(3,2, cb=True)
+    a = Event_Based(ocel.import_log('logs/actual-min.jsonocel'))
+    a.add_relation_created_count()
 
-    return g
+    print(a.df_full())
+
+
+if __name__ == '__main__':
+    main()
