@@ -198,7 +198,14 @@ def add_merge(net, log, event, src, tar, rel_names):
         tar_events = net.nodes[tar]['object_events']
         if src_events[-1] in tar_events[:-1]:
             add_directed_edge(net, event, src, tar, rel_names)
-            # net.add_edge(src, tar, merge=True)
+
+
+def add_split(net, log, event, src, tar, rel_names):
+    if net.nodes[src]['type'] == net.nodes[tar]['type']:
+        src_events = net.nodes[src]['object_events']
+        tar_events = net.nodes[tar]['object_events']
+        if tar_events[-1] in src_events[:-1]:
+            add_directed_edge(net, event, src, tar, rel_names)
 
 
 def add_consumes(net, log, event, src, tar, rel_names):
@@ -208,7 +215,6 @@ def add_consumes(net, log, event, src, tar, rel_names):
 
         if tar_events[-1] in src_events[:-1]:
             add_directed_edge(net, event, src, tar, rel_names)
-            # net.add_edge(src, tar, consumes=True)
 
 
 def add_inheritance(net, log, event, src, tar, rel_names):
@@ -225,7 +231,6 @@ def add_minion(net, log, event, src, tar, rel_names):
     if all(x in src_events for x in tar_events) \
        and len(tar_events) < len(src_events):
         add_directed_edge(net, event, tar, src, rel_names)
-        # net.add_edge(tar, src, minion=True)
 
 
 # Relationship requires a different format to be efficient
@@ -237,8 +242,6 @@ def add_peeler(net, log, event, src, tar, rel_names):
             return
 
     add_undirected_edge(net, event, src, tar, rel_names)
-    # net.add_edge(src, tar, peeler=True)
-    # net.add_edge(src, tar, peeler=True)
 
 
 # MAIN FUNCTIONS
