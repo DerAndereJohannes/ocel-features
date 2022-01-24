@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 import ocel_features.util.multigraph as m
 
 
-def save_graph_graphviz(net):
+def save_graph_graphviz(net, layout='dot', name='test_graph'):
     ag = nx.nx_agraph.to_agraph(net)
-    ag.layout('dot')
-    ag.draw('test_graph.png')
-    os.system('open test_graph.png')
+    ag.layout(layout)
+    ag.draw(f'{name}.png')
+    os.system(f'open {name}.png')
 
 
 def show_graph_plt(net):

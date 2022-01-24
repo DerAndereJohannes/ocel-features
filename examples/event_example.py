@@ -6,7 +6,8 @@ def main():
     a = Event_Based(ocel.import_log('logs/actual-min.jsonocel'))
     a.add_relation_created_count()
 
-    print(a.df_full())
+    print(a.df_full().columns)
+    print(a.df_values())
 
 
 if __name__ == '__main__':

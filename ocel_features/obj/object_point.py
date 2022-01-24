@@ -5,6 +5,7 @@ import ocel_features.util.relations_helper as rh
 from sklearn.decomposition import PCA
 from ocel_features.util.multigraph import create_object_centric_graph
 from ocel_features.util.ocel_helper import get_activity_names
+from ocel_features.util.multigraph import relations_to_relnames
 
 
 _FEATURE_PREFIX = 'objp:'
@@ -324,9 +325,14 @@ class Object_Based:
         self._df[col_name] = col_values
 
     # Descendant based on single objects
-    def add_direct_rel_count(self, rels=['descendants', 'ancestors']):
+    def add_direct_rel_count(self, rels=None):
+
+        if not rels:
+            # get all
+            rels = relations_to_relnames()
+
         # control
-        para_log = (func_name(), rels)
+        para_log = (func_name(), frozenset(rels))
         if para_log in self._df.columns:
             print(f'[!] {para_log} already computed. Skipping..')
             return
@@ -334,19 +340,56 @@ class Object_Based:
         # df setup
         col_name = [f'{_FEATURE_PREFIX}df:direct_{rel}_count' for rel in rels]
         row_count = len(self._df.index)
-        col_values = [np.zeros(row_count, dtype=np.uint64) for _ in rels]
+        col_count = len(col_name)
+        col_values = [np.zeros(col_count, dtype=np.uint64)
+                      for _ in range(row_count)]
 
         # extraction
         for i in range(row_count):
             oid = self._df.iloc[i, 0]
             relations = rh.get_direct_relations_count(self._graph, oid)
-
-            for j, rel in enumerate(rels):
-                col_values[i, j] = relations[rel]
+            if relations:
+                for j, rel in enumerate(rels):
+                    col_values[i][j] = relations[rel]
 
         # add to df
         self._op_log.append(para_log)
         self._df[col_name] = col_values
+
+    # def add_direct_rel_otype_count(self, rels):
+    #     if not rels:
+    #         # get all
+    #         rels = relations_to_relnames()
+
+    #     # control
+    #     para_log = (func_name(), frozenset(rels))
+    #     if para_log in self._df.columns:
+    #         print(f'[!] {para_log} already computed. Skipping..')
+    #         return
+
+    #     # df setup
+    #     objs = ocel.get_objects(self._log)
+    #     obj_types = ocel.get_object_types(self._log)
+    #     col_name = [f'{_FEATURE_PREFIX}df:direct_{rel}_{ot}_count'
+    #                 for rel, ot in product(rels, obj_types)]
+    #     row_count = len(self._df.index)
+    #     col_count = len(col_name)
+    #     col_values = [np.zeros(col_count, dtype=np.uint64)
+    #                   for _ in range(row_count)]
+
+    #     # extraction
+    #     for i in range(row_count):
+    #         oid = self._df.iloc[i, 0]
+    #         relations = \
+    #               rh.get_direct_relations_type_tuple(self._graph, oid, objs)
+    #         for j, tup in enumerate(rels):
+    #             o_type = tup[0]
+
+    #             col_values[i][j] = relations[rel]
+
+    #     # add to df
+    #     self._op_log.append(para_log)
+    #     self._df[col_name] = col_values
 
     # df methods
     def df_full(self):

@@ -7,6 +7,10 @@ def get_direct_relations_count(net, src):
     return Counter(chain.from_iterable(lists_of_relations))
 
 
+def get_direct_relations_type_tuple(net, src, obj_list):
+    return [(obj_list[k]['ocel:type'], v) for k, v in net[src].items()]
+
+
 def get_obj_relation_trees(net, events, rels):
     rel_trees = {n: None for n in net.nodes}
     for k in rel_trees:

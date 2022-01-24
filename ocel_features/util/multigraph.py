@@ -97,7 +97,10 @@ def split_multi_rel(rel_name):
     return rel_name.split(_RELATION_DELIMITER)
 
 
-def relations_to_relnames(rels):
+def relations_to_relnames(rels=None):
+    if not rels:
+        rels = [rel for rel in Relations]
+
     rel_set = set()
 
     for rel in rels:
