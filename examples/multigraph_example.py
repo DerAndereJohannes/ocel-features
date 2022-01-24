@@ -1,26 +1,10 @@
 import ocel
-import networkx as nx
-import matplotlib.pyplot as plt
 import ocel_features.util.local_helper as lh
+import ocel_features.analysis.plot_graphs as pg
 from pprint import pprint
 from ocel_features.util.ocel_helper import omap_list_to_set
 from ocel_features.util.multigraph import Relations, \
-    create_object_centric_graph, relation_shorthand
-
-
-label_convert = {
-    'INTERACTS': 'in',
-    'DESCENDANTS': 'de',
-    'ANCESTORS': 'an',
-    'COBIRTH': 'cb',
-    'CODEATH': 'cd',
-    'COLIFE': 'cl',
-    'MERGE': 'me',
-    'INHERITANCE': 'ih',
-    'MINION': 'mi',
-    'PEELER': 'pe',
-    'CONSUMES': 'co'
-}
+     create_object_centric_graph
 
 
 def main():
@@ -37,25 +21,7 @@ def main():
 
     # print([f"{k}, {v}" for k, v in rel_graph.nodes.items()])
 
-    show_graph_plt(rel_graph)
-
-
-def show_graph_plt(net):
-    weights = [len(net.get_edge_data(u, v, []))
-               + len(net.get_edge_data(v, u, [])) for u, v in net.edges()]
-    edge_labels = {}
-    for u, v in net.edges():
-        if (u, v) not in edge_labels and (v, u) not in edge_labels:
-            uv = [relation_shorthand(x) for x in net.get_edge_data(u, v, [])]
-            vu = [relation_shorthand(x) for x in net.get_edge_data(v, u, [])]
-            edge_labels[u, v] = f'{u}->{v}:{uv}, {vu}'
-
-    plt.figure()
-    pos = nx.nx_pydot.graphviz_layout(net)
-    nx.draw_networkx_edge_labels(net, pos, edge_labels)
-    # nx.draw(net, pos=pos, with_labels=True)
-    nx.draw(net, pos=pos, width=weights, with_labels=True)
-    plt.show()
+    pg.show_graph_plt(rel_graph)
 
 
 if __name__ == '__main__':
