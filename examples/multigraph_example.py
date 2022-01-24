@@ -3,7 +3,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import ocel_features.util.local_helper as lh
 from pprint import pprint
-from ocel_features.util.ocel_alterations import omap_list_to_set
+from ocel_features.util.ocel_helper import omap_list_to_set
 from ocel_features.util.multigraph import Relations, \
     create_object_centric_graph, relation_shorthand
 

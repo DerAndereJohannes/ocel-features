@@ -4,7 +4,7 @@ import numpy as np
 import ocel_features.util.relations_helper as rh
 from sklearn.decomposition import PCA
 from ocel_features.util.multigraph import create_object_centric_graph
-from ocel_features.util.ocel_alterations import get_activity_names
+from ocel_features.util.ocel_helper import get_activity_names
 
 
 _FEATURE_PREFIX = 'objp:'
@@ -241,7 +241,7 @@ class Object_Based:
         self._op_log.append(para_log)
         self._df[col_name] = col_values
 
-    def add_object_df(self):
+    def add_object_dfollows(self):
         # control
         para_log = (func_name(),)
         if para_log in self._op_log:
@@ -343,27 +343,6 @@ class Object_Based:
 
             for j, rel in enumerate(rels):
                 col_values[i, j] = relations[rel]
-
-        # add to df
-        self._op_log.append(para_log)
-        self._df[col_name] = col_values
-
-    def add_total_descendant_count(self):
-        para_log = (func_name(),)
-        if para_log in self._df.columns:
-            print(f'[!] {para_log} already computed. Skipping..')
-            return
-
-        # df setup
-        col_name = f'{_FEATURE_PREFIX}total_descendant_count'
-        row_count = len(self._df.index)
-        col_values = np.zeros(row_count, dtype=np.uint64)
-
-        # extraction
-        for i in range(row_count):
-            oid = self._df.iloc[i, 0]
-            col_values[i] = len(
-                self._desc_dict['full_descendants'][oid]['descendants'])
 
         # add to df
         self._op_log.append(para_log)

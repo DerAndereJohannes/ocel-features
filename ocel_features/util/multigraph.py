@@ -81,6 +81,7 @@ def has_death_and_birth(net, id_1, id_2):
         return None, None
 
 
+# RELATIONSHIP HELPER FUNCTIONS
 def exe_relations(net, log, event, src, tar, rel):
     rel_name = Relations(rel).name
     rel1 = rel2 = None

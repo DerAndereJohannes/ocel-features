@@ -1,6 +1,6 @@
 import ocel
 import ocel_features.util.object_descendants as od
-from ocel_features.util.convert_neo4j import neo4j_exporter
+from ocel_features.util.experimental.convert_neo4j import neo4j_exporter
 from dotenv import dotenv_values
 
 
