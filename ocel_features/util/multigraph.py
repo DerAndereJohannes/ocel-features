@@ -59,7 +59,17 @@ def same_index_event(net, id_1, id_2, index):
 def get_younger_obj(net, log, id_1, id_2):
     obj1_b = event_from_obj(net, log, id_1, 0)['ocel:timestamp']
     obj2_b = event_from_obj(net, log, id_2, 0)['ocel:timestamp']
-    if obj1_b < obj2_b:
+    if obj1_b <= obj2_b:
+        return id_1
+    else:
+        return id_2
+
+
+def get_older_obj(net, log, id_1, id_2):
+    obj1_b = event_from_obj(net, log, id_1, -1)['ocel:timestamp']
+    obj2_b = event_from_obj(net, log, id_2, -1)['ocel:timestamp']
+
+    if obj1_b >= obj2_b:
         return id_1
     else:
         return id_2

@@ -2,6 +2,7 @@ import inspect
 import pandas as pd
 import numpy as np
 import ocel_features.util.relations_helper as rh
+from ocel_features.util.multigraph import get_younger_obj, get_older_obj
 from sklearn.decomposition import PCA
 from ocel_features.util.multigraph import create_object_centric_graph
 from ocel_features.util.ocel_helper import get_activity_names
@@ -319,6 +320,42 @@ class Object_Based:
 
                     if result > 0:
                         col_values[i] = result
+
+        # add to df
+        self._op_log.append(para_log)
+        self._df[col_name] = col_values
+
+    def add_obj_start_end(self):
+        # control
+        para_log = (func_name(),)
+        if para_log in self._op_log:
+            print(f'[!] {para_log} already computed. Skipping..')
+            return
+
+        # df setup
+        objects = self._graph.nodes()
+        e_dict = self._log['ocel:events']
+        col_name = [f'{_FEATURE_PREFIX}{x}_object' for x in ['start', 'end']]
+        row_count = len(self._df.index)
+        col_values = np.zeros((row_count, 2), dtype=np.bool8)
+
+        # extraction
+        for i in range(row_count):
+            o1 = self._df.iloc[i, 0]
+            youngest = o1
+            oldest = o1
+            for o2 in e_dict[objects[o1]['object_events'][0]]['ocel:omap']:
+                if o1 != o2:
+                    youngest = get_younger_obj(self._graph, self._log, o1, o2)
+
+            for o2 in e_dict[objects[o1]['object_events'][-1]]['ocel:omap']:
+                if o1 != o2:
+                    oldest = get_older_obj(self._graph, self._log, o1, o2)
+
+            if o1 == youngest:
+                col_values[i][0] = 1
+            elif o1 == oldest:
+                col_values[i][1] = 1
 
         # add to df
         self._op_log.append(para_log)
