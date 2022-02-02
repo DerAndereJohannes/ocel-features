@@ -136,8 +136,10 @@ def add_directed_edge(net, event, src, tar, rel_names):
 
 
 def add_undirected_edge(net, event, src, tar, rel_names):
-    if not (net.has_edge(src, tar) or net.has_edge(tar, src)):
+    if not net.has_edge(src, tar):
         net.add_edge(src, tar)
+
+    if not net.has_edge(tar, src):
         net.add_edge(tar, src)
 
     rel1, rel2 = rel_names
@@ -157,7 +159,7 @@ def add_undirected_edge(net, event, src, tar, rel_names):
 
 
 # RELATIONSHIP TYPES
-def add_interaction(net, event, src, tar, rel_names):
+def add_interaction(net, log, event, src, tar, rel_names):
     add_undirected_edge(net, event, src, tar, rel_names)
 
 
@@ -215,11 +217,17 @@ def add_merge(net, log, event, src, tar, rel_names):
 
 
 def add_split(net, log, event, src, tar, rel_names):
+    # check if src and tar are same type
     if net.nodes[src]['type'] == net.nodes[tar]['type']:
-        src_events = net.nodes[src]['object_events']
-        tar_events = net.nodes[tar]['object_events']
-        if tar_events[-1] in src_events[:-1]:
-            add_directed_edge(net, event, src, tar, rel_names)
+        # check if there are multiple out arcs of same type
+        count_type = [net.nodes[x]['type'] for x in net[src]
+                      if net.nodes[x]['type'] == net.nodes[src]['type']]
+
+        if len(count_type) > 1:
+            death, birth = has_death_and_birth(net, src, tar)
+            # if src had its last event
+            if src == death:
+                add_directed_edge(net, event, src, tar, rel_names)
 
 
 def add_consumes(net, log, event, src, tar, rel_names):
@@ -250,9 +258,10 @@ def add_minion(net, log, event, src, tar, rel_names):
 # Relationship requires a different format to be efficient
 def add_peeler(net, log, event, src, tar, rel_names):
     src_events = net.nodes[src]['object_events']
+    ev = log['ocel:events']
 
     for e in src_events:
-        if tar in e['ocel:omap'] and not e['ocel:omap'] == {src, tar}:
+        if tar in ev[e]['ocel:omap'] and not ev[e]['ocel:omap'] == {src, tar}:
             return
 
     add_undirected_edge(net, event, src, tar, rel_names)

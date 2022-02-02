@@ -42,3 +42,7 @@ def time_bins(series, timediff):
 def equal_time_width_bins(series):
     time_width = (series[-1] - series[0]) / len(series)
     return time_bins(series, time_width)
+
+
+def flatten_list(t):
+    return [item for sublist in t for item in sublist]
