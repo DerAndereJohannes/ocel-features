@@ -10,7 +10,7 @@ from ocel_features.util.multigraph import Relations, \
 def main():
     log = ocel.import_log('logs/actual-min.jsonocel')
     omap_list_to_set(log)
-    rels = [Relations.ANCESTORS]
+    rels = [Relations.MINION]
     rel_graph = create_object_centric_graph(log, rels)
 
     print(list(rel_graph.nodes))

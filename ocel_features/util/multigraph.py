@@ -24,8 +24,11 @@ def create_multi_graph(log, relations):
                 net.nodes[oid]['object_events'] = list()
             net.nodes[oid]['object_events'].append(event_id)
 
-    for event_id in ocel_events:
+    for i, event_id in enumerate(ocel_events):
         event = ocel_events[event_id]
+
+        if not i % 1000:
+            print(f'{i}/{len(ocel_events)} events processed.')
 
         for oid in event['ocel:omap']:
             # add all new edges between selected
@@ -34,6 +37,7 @@ def create_multi_graph(log, relations):
                     for rel in relations:
                         exe_relations(net, log, event_id, oid, oid2, rel)
 
+    print('Graph done!')
     return net
 
 
@@ -78,6 +82,12 @@ def get_older_obj(net, log, id_1, id_2):
 def has_init_node(net, id_1, id_2, event):
     return net.nodes[id_1]['object_events'][0] is event \
         or net.nodes[id_2]['object_events'][0] is event
+
+
+def check_if_undirected_exists(net, oid, oid2, eid, rel):
+    return net.has_edge(oid, oid2) \
+        and rel in net[oid][oid2] \
+        and eid in net[oid][oid2][rel]
 
 
 def has_death_and_birth(net, id_1, id_2):
@@ -130,9 +140,11 @@ def add_directed_edge(net, event, src, tar, rel_names):
     rel = rel_names[0]
 
     if rel not in net[src][tar]:
-        net[src][tar][rel] = [event]
+        # net[src][tar][rel] = [event]
+        net[src][tar][rel] = {event}
     else:
-        net[src][tar][rel].append(event)
+        # net[src][tar][rel].append(event)
+        net[src][tar][rel].add(event)
 
 
 def add_undirected_edge(net, event, src, tar, rel_names):
@@ -148,14 +160,18 @@ def add_undirected_edge(net, event, src, tar, rel_names):
 
     # add the event to both of the relations
     if rel1 not in net[src][tar]:
-        net[src][tar][rel1] = [event]
+        # net[src][tar][rel1] = [event]
+        net[src][tar][rel1] = {event}
     else:
-        net[src][tar][rel1].append(event)
+        # net[src][tar][rel1].append(event)
+        net[src][tar][rel1].add(event)
 
     if rel2 not in net[tar][src]:
-        net[tar][src][rel2] = [event]
+        # net[tar][src][rel2] = [event]
+        net[tar][src][rel2] = {event}
     else:
-        net[tar][src][rel2].append(event)
+        # net[tar][src][rel2].append(event)
+        net[tar][src][rel2].add(event)
 
 
 # RELATIONSHIP TYPES
@@ -255,16 +271,28 @@ def add_minion(net, log, event, src, tar, rel_names):
         add_directed_edge(net, event, tar, src, rel_names)
 
 
+def add_partof(net, log, event, src, tar, rel_names):
+    if net.nodes[src]['type'] == net.nodes[tar]['type']:
+        src_events = net.nodes[src]['object_events']
+        tar_events = net.nodes[tar]['object_events']
+
+        if all(x in src_events for x in tar_events) \
+           and len(tar_events) < len(src_events):
+            add_directed_edge(net, event, tar, src, rel_names)
+
+
 # Relationship requires a different format to be efficient
 def add_peeler(net, log, event, src, tar, rel_names):
-    src_events = net.nodes[src]['object_events']
-    ev = log['ocel:events']
+    if not check_if_undirected_exists(net, src, tar, event, rel_names[0]):
+        src_events = net.nodes[src]['object_events']
+        ev = log['ocel:events']
 
-    for e in src_events:
-        if tar in ev[e]['ocel:omap'] and not ev[e]['ocel:omap'] == {src, tar}:
-            return
+        for e in src_events:
+            if tar in ev[e]['ocel:omap'] \
+               and not ev[e]['ocel:omap'] == {src, tar}:
+                return
 
-    add_undirected_edge(net, event, src, tar, rel_names)
+        add_undirected_edge(net, event, src, tar, rel_names)
 
 
 # MAIN FUNCTIONS
@@ -281,6 +309,7 @@ class Relations(Enum):
     MINION = (add_minion, )
     PEELER = (add_peeler, )
     CONSUMES = (add_consumes, )
+    PARTOF = (add_partof, )
 
 
 def relation_shorthand(rel):
@@ -297,3 +326,11 @@ def create_object_centric_graph(log, relations=None):
         relations = [Relations.ANCESTORS2DESCENDANTS]
 
     return create_multi_graph(log, relations)
+
+
+def export_multigraph(graph, path):
+    nx.write_gml(graph, path)
+
+
+def import_multigraph(path):
+    return nx.read_gml(path)
