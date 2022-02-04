@@ -55,6 +55,35 @@ def filter_direct_activity_involvement(log, graph, oids: set, ans: set):
     return obj_situations
 
 
+# FILTERING TO GET GOOD SITUATION PREFIXES ######
+def filter_event_ot_involvement(log, graph, oids: set, ot: set):
+    events = log['ocel:events']
+    objects = log['ocel:objects']
+    obj_situations = {}
+    for o in oids:
+        od = {'oid': o, 'situations': []}
+        ev_ids = set()
+        oids = set()
+        for i, ev in enumerate(graph.nodes[o]['object_events']):
+            ev_ids.add(ev)
+            oids.update(events[ev]['ocel:omap'])
+            omap = events[ev]['ocel:omap']
+            for o2 in omap:
+                o2_type = objects[o2]['ocel:type']
+                if o2_type in ot:
+                    situation = {'oid': o2, 'type': o2_type,
+                                 'event': ev, 'index': i,
+                                 'events': copy(ev_ids)}
+                    od['situations'].append(situation)
+
+        if not od['situations']:
+            od = None
+
+        obj_situations[o] = od
+
+    return obj_situations
+
+
 def get_oids_specific_event_involvement(log, graph, oids, eids):
     rtn_set = set()
     for o in oids:
