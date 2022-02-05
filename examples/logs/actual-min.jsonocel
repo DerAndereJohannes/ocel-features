@@ -36,7 +36,7 @@
       ],
       "ocel:vmap": {
         "resource": "Alessandro",
-        "prepaid-amount": 3500.0
+        "prepaid-amount": 1000.0
       }
     },
     "e2": {
@@ -46,7 +46,9 @@
         "i1",
         "o1"
       ],
-      "ocel:vmap": {}
+      "ocel:vmap": {
+        "time-taken": 3
+      }
     },
     "e3": {
       "ocel:activity": "place order",
@@ -84,7 +86,9 @@
         "i3",
         "o2"
       ],
-      "ocel:vmap": {}
+      "ocel:vmap": {
+        "time-taken": 2
+      }
     },
     "e7": {
       "ocel:activity": "pick item",
@@ -129,7 +133,9 @@
         "i2",
         "o1"
       ],
-      "ocel:vmap": {}
+      "ocel:vmap": {
+        "time-taken": 5
+      }
     },
     "e12": {
       "ocel:activity": "pick item",
@@ -412,7 +418,12 @@
   "ocel:objects": {
     "o1": {
       "ocel:type": "order",
-      "ocel:ovmap": {}
+      "ocel:ovmap": {
+        "items": 2499.99,
+        "vat": 250,
+        "handling": 250,
+        "total": 2999.99
+      }
     },
     "o2": {
       "ocel:type": "order",
@@ -424,15 +435,24 @@
     },
     "i1": {
       "ocel:type": "item",
-      "ocel:ovmap": {}
+      "ocel:ovmap": {
+        "name": "Laptop",
+        "price": 2000.00
+      }
     },
     "i2": {
       "ocel:type": "item",
-      "ocel:ovmap": {}
+      "ocel:ovmap": {
+        "name": "Monitor",
+        "price": 449.99
+      }
     },
     "i3": {
       "ocel:type": "item",
-      "ocel:ovmap": {}
+      "ocel:ovmap": {
+        "name": "Keyboard",
+        "price": 50
+      }
     },
     "i4": {
       "ocel:type": "item",
@@ -448,7 +468,11 @@
     },
     "p1": {
       "ocel:type": "package",
-      "ocel:ovmap": {}
+      "ocel:ovmap": {
+        "weight": 15,
+        "height": 50,
+        "width": 50
+      }
     },
     "p2": {
       "ocel:type": "package",
@@ -456,11 +480,19 @@
     },
     "r1": {
       "ocel:type": "route",
-      "ocel:ovmap": {}
+      "ocel:ovmap": {
+        "distance": 5000,
+        "driver": "Mike",
+        "Destination": "123 Rue de Road"
+      }
     },
     "r2": {
       "ocel:type": "route",
-      "ocel:ovmap": {}
+      "ocel:ovmap": {
+        "distance": 4500,
+        "driver": "Jason",
+        "Destination": "123 Rue de Road"
+      }
     }
   }
 }

@@ -1,34 +1,84 @@
 import pandas as pd
+import numpy as np
 from copy import copy
 from networkx.algorithms.shortest_paths import shortest_path, \
     all_shortest_paths
-from ocel_features.util.multigraph import create_object_centric_graph, \
-    relations_to_relnames
+from ocel_features.util.multigraph import relations_to_relnames
 from ocel_features.util.local_helper import obj_relationship_localities
 
 
-class Object_Situation:
-    def __init__(self, log, oids=None, graph=None):
+class Object_Situation_Locality_OT:
+    def __init__(self, log, graph, localities, oid, situation):
         self._log = log
-        if graph:
-            self._graph = graph
-        else:
-            self._graph = create_object_centric_graph(log)
+        self._graph = graph  # subgraph only of the included nodes
+        self._localities = localities  # only of the included nodes
+        self._source = situation['situation_source']
+        self._target = situation['situation_target']
+        self._target_event = situation['situation_event']
+        self._situation = situation  # one one situation
 
-        if not oids:
-            oids = log['ocel:objects']
+        self._df = pd.DataFrame()
 
-        self._df = pd.DataFrame({'oid': oids,
-                                 'type': [log['ocel:objects'][x]['ocel:type']
-                                          for x in oids]})
-        self._op_log = []
+    def get_obj_attributes(self):
+        for o in self._situation['objects']:
+            for k, v in self._log['ocel:objects'][o]['ocel:ovmap'].items():
+                ot = self._log['ocel:objects'][o]['ocel:type']
+                key = f'att:{ot}:{o}:{k}'
+                self._df[key] = [v]
 
-        # 1. get all attributes based on object type AKA. duplicate OT is OK
-        # 1.5. get global attributes to OE (object-point attributes)
-        # 2. get all event and event attributes based on AN of the OE instance
-        # connection to object global.
-        # 3. gather all events of all objects
-        # 4.
+    def get_ot_attributes(self, ot: set = None):
+        if not isinstance(ot, set):
+            ot = set(self._log['ocel:global-log']['ocel:object-types'])
+        for o in self._situation['objects']:
+            o_ot = self._log['ocel:objects'][o]['ocel:type']
+            if o_ot in ot:
+                for k, v in self._log['ocel:objects'][o]['ocel:ovmap'].items():
+                    key = f'att:{ot}:{o}:{k}'
+                    self._df[key] = [v]
+
+    def get_agg_ot_attributes(self, ot: set = None):
+        # only goes over values
+        if not isinstance(ot, set):
+            ot = set(self._log['ocel:global-log']['ocel:object-types'])
+        curr_col = copy(self._df.columns)
+        for o in self._situation['objects']:
+            o_ot = self._log['ocel:objects'][o]['ocel:type']
+            if o_ot in ot:
+                for k, v in self._log['ocel:objects'][o]['ocel:ovmap'].items():
+                    ot = self._log['ocel:objects'][o]['ocel:type']
+                    key = f'agg:{ot}:{k}'
+                    if key in curr_col:
+                        continue  # if columns already exists
+                    if isinstance(v, (int, float)):
+                        if key in self._df:
+                            self._df[key] += v
+                        else:
+                            self._df[key] = [v]
+
+    def get_event_attributes(self):
+        for e in self._situation['events']:
+            for k, v in self._log['ocel:events'][e]['ocel:vmap'].items():
+                an = self._log['ocel:events'][e]['ocel:activity']
+                key = f'att:{an}:{e}:{k}'
+                self._df[key] = [v]
+
+    def get_agg_activity_attributes(self):
+        # only goes over values
+        curr_col = copy(self._df.columns)
+        for e in self._situation['events']:
+            an = self._log['ocel:events'][e]['ocel:activity']
+            for k, v in self._log['ocel:events'][e]['ocel:vmap'].items():
+                key = f'agg:{an}:{k}'
+                if key in curr_col:
+                    continue  # if columns already exists
+                if isinstance(v, (int, float)):
+                    if key in self._df:
+                        self._df[key] += v
+                    else:
+                        self._df[key] = [v]
+
+    def df_numeric(self):
+        return self._df.select_dtypes(include=np.number)
 
 
 # FILTERING TO GET GOOD SITUATION PREFIXES ######
@@ -74,6 +124,10 @@ def filter_event_ot_involvement(log, graph, oids: set, ot: set):
                     situation = {'oid': o2, 'type': o2_type,
                                  'event': ev, 'index': i,
                                  'events': copy(ev_ids)}
+                    objs = set()
+                    for e in ev_ids:
+                        objs |= events[e]['ocel:omap']
+                    situation['objects'] = objs
                     od['situations'].append(situation)
 
         if not od['situations']:
@@ -93,20 +147,41 @@ def get_oids_specific_event_involvement(log, graph, oids, eids):
     return rtn_set
 
 
-def filter_locality_ot_involvement(log, graph, oids, ot, rels):
-    localities = obj_relationship_localities(graph, rels)
+def filter_locality_ot_involvement(log, graph, localities, oids, ot, rels):
     rels = relations_to_relnames(rels)
     obj_situations = {}
+    events = log['ocel:events']
 
     for o in oids:
-        od = {'oid': o, 'situations': []}
+        od = {'src': o, 'situations': []}
         for rel in rels:
-            o_set, o_tree = localities[o][rel]
-            for o2 in o_set:
-                if log['ocel:objects'][o2]['ocel:type'] in ot:
-                    situation = {'o2': o2, 'relation': rel,
-                                 'path': shortest_path(o_tree, o, o2)}
-                    od['situations'].append(situation)
+            if localities[o][rel]:
+                o_set, o_tree = localities[o][rel]
+                for o2 in o_set:
+                    if log['ocel:objects'][o2]['ocel:type'] in ot:
+                        path = shortest_path(o_tree, o, o2)
+                        situation = {'relation': rel,
+                                     'path': path}
+                        evs = []
+                        objs = set()
+                        switch_ev = graph.nodes[o]['object_events'][0]
+                        for i, oid in enumerate(path[:-1]):
+                            oe = graph.nodes[oid]['object_events']
+                            start_index = oe.index(switch_ev)
+                            for e in oe[start_index:]:
+                                if path[i+1] in events[e]['ocel:omap']:
+                                    switch_ev = e
+                                    break
+                                else:
+                                    evs.append(e)
+                                    objs |= events[e]['ocel:omap']
+
+                        situation['objects'] = objs
+                        situation['events'] = evs
+                        situation['situation_event'] = switch_ev
+                        situation['situation_source'] = o
+                        situation['situation_target'] = o2
+                        od['situations'].append(situation)
 
         obj_situations[o] = od
 
@@ -126,6 +201,8 @@ def filter_global_ot_involvement(log, graph, oids, ot, rels):
                 if log['ocel:objects'][o2]['ocel:type'] == ot:
                     situation = {'o2': o2,
                                  'paths': all_shortest_paths(graph, o, o2)}
+                    situation['objects'] = 0
+                    situation['events'] = 0
                     od['situations'].append(situation)
 
     return obj_situations
@@ -144,3 +221,19 @@ def filter_local_relation_ot_involvement(log, graph, oids, ot, rels):
                     break
 
     return rtn_set
+
+
+def create_situations_obj_rel_ot(log, graph, localities,
+                                 src: str, ot: str, rels: set):
+    d = []
+    src = {src} if isinstance(src, str) else src
+    ot = {ot} if isinstance(src, str) else ot
+
+    # get the individual situations
+    situations = filter_locality_ot_involvement(log, graph, localities,
+                                                src, ot, rels)
+
+    # create a df object for every situation
+    for s in situations[src.pop()]['situations']:
+        d.append(Object_Situation_Locality_OT(log, graph, localities, src, s))
+    return d

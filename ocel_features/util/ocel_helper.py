@@ -1,5 +1,6 @@
 import ocel
 from math import isnan
+# from copy import copy
 
 
 def omap_list_to_set(log):
@@ -70,3 +71,25 @@ def get_multi_object_events(log, oid_list=None):
                 obj_event_dict[o].append(e_k)
 
     return obj_event_dict
+
+
+# def filter_log_by_subgraph(log, subgraph):
+#     new_log = copy(log)
+#     events = log['ocel:events']
+#     objects = log['ocel:objects']
+
+#     e_add = {}
+#     o_add = {}
+
+#     for e in events:
+#         if events[e]['ocel:omap'] & oids:
+#             e_add[e] = events[e]
+
+#     for o in objects:
+#         if o in oids:
+#             o_add[o] = objects[o]
+
+#     new_log['ocel:events'] = e_add
+#     new_log['ocel:objects'] = o_add
+
+#     return new_log

@@ -64,3 +64,17 @@ def unique_relations_to_objects(localities, rels):
                     uloc[o_rel][o_id_set] = {o_id}
 
     return uloc
+
+
+def get_rel_oids(locality, rels):
+    oid_set = set()
+
+    for rel in rels:
+        if locality[rel]:
+            oid_set |= locality[rel][0]
+
+    return oid_set
+
+
+def get_rel_events(locality, rels):
+    pass
