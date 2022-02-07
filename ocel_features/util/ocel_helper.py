@@ -1,5 +1,6 @@
 import ocel
 from math import isnan
+from copy import copy
 # from copy import copy
 
 
@@ -71,6 +72,17 @@ def get_multi_object_events(log, oid_list=None):
                 obj_event_dict[o].append(e_k)
 
     return obj_event_dict
+
+
+def create_subproblem(log, graph, oids: set, eids: set):
+    subgraph = graph.subgraph(oids)
+    sublog = copy(log)
+    events = log['ocel:events']
+    objects = log['ocel:objects']
+    sublog['ocel:events'] = {k: events[k] for k in events if k in eids}
+    sublog['ocel:objects'] = {k: objects[k] for k in objects if k in oids}
+
+    return sublog, subgraph
 
 
 # def filter_log_by_subgraph(log, subgraph):

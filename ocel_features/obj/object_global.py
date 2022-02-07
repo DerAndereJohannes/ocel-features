@@ -17,9 +17,12 @@ def func_name():
 
 
 class Object_Global:
-    def __init__(self, log):
+    def __init__(self, log, graph=None):
         self._log = log
-        self._graph = create_object_centric_graph(log)
+        if graph:
+            self._graph = graph
+        else:
+            self._graph = create_object_centric_graph(log)
         self._df = pd.DataFrame()
         self._misc = {}
         self._op_log = []

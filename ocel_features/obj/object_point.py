@@ -18,12 +18,19 @@ def func_name():
 
 
 class Object_Based:
-    def __init__(self, log):
+    def __init__(self, log, graph=None, oids=None):
         self._log = log
-        self._graph = create_object_centric_graph(log)
-        self._df = pd.DataFrame({'oid': log['ocel:objects'].keys(),
+        if oids:
+            self._oids = oids
+        else:
+            self._oids = log['ocel:objects'].keys()
+        if graph:
+            self._graph = graph
+        else:
+            self._graph = create_object_centric_graph(log)
+        self._df = pd.DataFrame({'oid': self._oids,
                                  'type': [log['ocel:objects'][x]['ocel:type']
-                                          for x in log['ocel:objects']]})
+                                          for x in self._oids]})
         self._op_log = []
 
     # feature extraction methods DONE

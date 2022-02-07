@@ -5,12 +5,18 @@ from networkx.algorithms.shortest_paths import shortest_path, \
     all_shortest_paths
 from ocel_features.util.multigraph import relations_to_relnames
 from ocel_features.util.local_helper import obj_relationship_localities
+import ocel_features.obj.object_point as op
+import ocel_features.obj.object_global as og
+# import ocel_features.util.ocel_helper as oh
 
 
 class Object_Situation_Locality_OT:
     def __init__(self, log, graph, localities, oid, situation):
         self._log = log
-        self._graph = graph  # subgraph only of the included nodes
+        self._graph = graph
+        # self._log, self._graph = oh.create_subproblem(log, graph,
+        #                                               situation['objects'],
+        #                                               situation['events'])
         self._localities = localities  # only of the included nodes
         self._source = situation['situation_source']
         self._target = situation['situation_target']
@@ -76,6 +82,33 @@ class Object_Situation_Locality_OT:
                         self._df[key] += v
                     else:
                         self._df[key] = [v]
+
+    def get_object_point(self, fname, finput, oids):
+
+        point = op.Object_Based(self._log, self._graph, oids)
+        func = getattr(point, fname)
+
+        func(*finput)
+
+        df_dict = point.df_full().to_dict(orient='records')
+        for row in df_dict:
+            roid = row['oid']
+            for k, v in row.items():
+                if op._FEATURE_PREFIX in k:
+                    self._df[f'{roid}:{k}'] = [v]
+
+    def get_object_global(self, fname, finput, oids):
+
+        point = og.Object_Global(self._log, self._graph)
+        func = getattr(point, fname)
+
+        func(*finput)
+
+        df_dict = point.df_full().to_dict(orient='records')[0]
+
+        for k, v in df_dict.items():
+            if og._FEATURE_PREFIX in k:
+                self._df[k] = [v]
 
     def df_numeric(self):
         return self._df.select_dtypes(include=np.number)
