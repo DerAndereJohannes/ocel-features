@@ -295,6 +295,14 @@ def add_peeler(net, log, event, src, tar, rel_names):
         add_undirected_edge(net, event, src, tar, rel_names)
 
 
+def add_engagement(net, log, event, src, tar, rel_names):
+    src_events = net.nodes[src]['object_events']
+    tar_events = net.nodes[tar]['object_events']
+
+    if set(src_events[1:-1]) & set(tar_events[1:-1]):
+        add_undirected_edge(net, event, src, tar, rel_names)
+
+
 # MAIN FUNCTIONS
 class Relations(Enum):
     INTERACTS = (add_interaction, )
@@ -310,6 +318,7 @@ class Relations(Enum):
     PEELER = (add_peeler, )
     CONSUMES = (add_consumes, )
     PARTOF = (add_partof, )
+    ENGAGES = (add_engagement, )
 
 
 def all_relations():

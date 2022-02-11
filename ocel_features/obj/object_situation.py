@@ -4,7 +4,8 @@ import networkx as nx
 from copy import copy
 from networkx.algorithms.shortest_paths import shortest_path, \
     all_shortest_paths
-from ocel_features.util.multigraph import relations_to_relnames, rel_subgraph
+from ocel_features.util.multigraph import relations_to_relnames, \
+    rel_subgraph, Relations
 from ocel_features.util.local_helper import obj_relationship_localities
 import ocel_features.obj.object_point as op
 import ocel_features.obj.object_global as og
@@ -279,6 +280,41 @@ def filter_target_situations(log, graph, localities, targets, rels):
         situation['events'] = sit_events
 
         obj_situations[o] = situation
+
+    return obj_situations
+
+
+def filter_object_situation(log, graph, localities, targets,
+                            rels={Relations.INTERACTS}, an=None):
+
+    rels = relations_to_relnames(rels)
+    obj_situations = {}
+    events = log['ocel:events']
+
+    # setup reverse all arcs
+    igraph = rel_subgraph(graph, rels).reverse()
+
+    if an:
+        for o in targets:
+            an_e = [e for e in graph.nodes[o]['object_events']
+                    if events[e]['ocel:activity'] in an]
+
+            # check if the objects events contain the needed activity name(s)
+            if an_e:
+                situation = {'target_object': o,
+                             'target_type': igraph.nodes[o]['type']}
+                situation['target_events'] = an_e
+                situation['objects'] = nx.descendants(igraph, o) | {o}
+                situation['graph'] = igraph.subgraph(situation['objects'])
+                obj_situations[o] = situation
+    else:
+        for o in targets:
+            situation = {'target_object': o,
+                         'target_type': igraph.nodes[o]['type']}
+            situation['target_event'] = igraph.nodes[o]['object_events'][0]
+            situation['objects'] = nx.descendants(igraph, o) | {o}
+            situation['graph'] = igraph.subgraph(situation['objects'])
+            obj_situations[o] = situation
 
     return obj_situations
 
