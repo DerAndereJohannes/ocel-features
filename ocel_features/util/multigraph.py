@@ -312,6 +312,12 @@ class Relations(Enum):
     PARTOF = (add_partof, )
 
 
+def all_relations():
+    return [r.value for r in Relations
+            if '_' not in r.name
+            and '2' not in r.name]
+
+
 def relation_shorthand(rel):
     if isinstance(rel, str):
         return rel[:_SHORT_LENGTH]
@@ -334,3 +340,11 @@ def export_multigraph(graph, path):
 
 def import_multigraph(path):
     return nx.read_gml(path)
+
+
+def rel_subgraph(graph, rels):
+    rels = relations_to_relnames(rels)
+    rel_edges = [(u, v) for u, v, e in graph.edges(data=True)
+                 if [p for p in e if p in rels]]
+
+    return graph.edge_subgraph(rel_edges)

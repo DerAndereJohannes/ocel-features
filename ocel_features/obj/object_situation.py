@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
+import networkx as nx
 from copy import copy
 from networkx.algorithms.shortest_paths import shortest_path, \
     all_shortest_paths
-from ocel_features.util.multigraph import relations_to_relnames
+from ocel_features.util.multigraph import relations_to_relnames, rel_subgraph
 from ocel_features.util.local_helper import obj_relationship_localities
 import ocel_features.obj.object_point as op
 import ocel_features.obj.object_global as og
@@ -254,6 +255,32 @@ def filter_local_relation_ot_involvement(log, graph, oids, ot, rels):
                     break
 
     return rtn_set
+
+
+def filter_target_situations(log, graph, localities, targets, rels):
+    rels = relations_to_relnames(rels)
+    obj_situations = {}
+    events = log['ocel:events']
+
+    # setup
+    igraph = rel_subgraph(graph, rels).reverse()
+
+    for o in targets:
+        situation = {'target': o}
+        situation['target_event'] = graph.nodes[o]['object_events'][0]
+        situation['objects'] = nx.descendants(igraph, o) | {o}
+        situation['graph'] = igraph.subgraph(situation['objects'])
+        sit_events = {situation['target_event']}
+        last_time = events[situation['target_event']]['ocel:timestamp']
+
+        for o2 in situation['objects']:
+            sit_events.update({e for e in graph.nodes[o2]['object_events']
+                               if events[e]['ocel:timestamp'] <= last_time})
+        situation['events'] = sit_events
+
+        obj_situations[o] = situation
+
+    return obj_situations
 
 
 def create_situations_obj_rel_ot(log, graph, localities,
