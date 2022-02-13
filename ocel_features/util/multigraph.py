@@ -109,7 +109,6 @@ def exe_relations(net, log, event, src, tar, rel):
         rel1, rel2 = split_multi_rel(rel_name)
     else:
         rel1 = rel_name
-
     rel.value[0](net, log, event, src, tar, (rel1, rel2))
 
 
@@ -322,7 +321,7 @@ class Relations(Enum):
 
 
 def all_relations():
-    return [r.value for r in Relations
+    return [Relations(r.value) for r in Relations
             if '_' not in r.name
             and '2' not in r.name]
 

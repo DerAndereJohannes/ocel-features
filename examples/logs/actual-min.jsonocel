@@ -476,7 +476,11 @@
     },
     "p2": {
       "ocel:type": "package",
-      "ocel:ovmap": {}
+      "ocel:ovmap": {
+        "weight": 5,
+        "height": 20,
+        "width": 10
+      }
     },
     "r1": {
       "ocel:type": "route",
@@ -489,7 +493,7 @@
     "r2": {
       "ocel:type": "route",
       "ocel:ovmap": {
-        "distance": 4500,
+        "distance": 2000,
         "driver": "Jason",
         "Destination": "123 Rue de Road"
       }

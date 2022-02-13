@@ -1,5 +1,6 @@
 import pandas as pd
 from statistics import mean, stdev, median, mode
+from enum import Enum
 
 
 _ADDED_STATS = [('mean', mean), ('stdev', stdev),
@@ -46,3 +47,31 @@ def equal_time_width_bins(series):
 
 def flatten_list(t):
     return [item for sublist in t for item in sublist]
+
+
+def get_min(series):
+    return min(series)
+
+
+def get_max(series):
+    return max(series)
+
+
+def get_avg(series):
+    return mean(series)
+
+
+def get_count(series):
+    return len(series)
+
+
+def get_sum(series):
+    return sum(series)
+
+
+class Operators(Enum):
+    COUNT = (get_count,)
+    SUM = (get_sum,)
+    AVG = (get_avg,)
+    MAX = (get_max,)
+    MIN = (get_min,)

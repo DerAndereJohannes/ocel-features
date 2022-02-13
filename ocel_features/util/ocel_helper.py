@@ -3,6 +3,10 @@ from math import isnan
 from copy import copy
 # from copy import copy
 
+OBJECTS = 'ocel:objects'
+EVENTS = 'ocel:events'
+TIMESTAMP = 'ocel:timestamp'
+
 
 def omap_list_to_set(log):
     for event_id in log['ocel:events']:
@@ -20,6 +24,11 @@ def get_activity_names(log):
     return list(activity_names)
 
 
+def get_an_trace(log, eids):
+    events = log['ocel:events']
+    return [events[e]['ocel:activity'] for e in eids]
+
+
 def remove_empty_entities(log):
     objs = ocel.get_objects(log)
     events = ocel.get_events(log)
@@ -31,16 +40,20 @@ def remove_empty_entities(log):
     return log
 
 
-def get_common_attribute_names(log, obj_type=None):
+def get_common_attribute_names(log, oids=None, obj_type=None):
     if obj_type is None:
         obj_type = set(ocel.get_object_types(log))
     else:
         obj_type = set(obj_type)
 
     attribute_dict = {an: 0.0 for an in ocel.get_attribute_names(log)}
-    all_objs = ocel.get_objects(log)
-    objs = {o: v for o, v in all_objs.items()
-            if all_objs[o]['ocel:type'] in obj_type}
+
+    if oids:
+        objs = {o: v for o, v in log['ocel:objects'].items()
+                if v['ocel:type'] == obj_type and o in oids}
+    else:
+        objs = {o: v for o, v in log['ocel:objects'].items()
+                if v['ocel:type'] == obj_type}
 
     for o in objs:
         if objs[o]['ocel:type'] in obj_type:
