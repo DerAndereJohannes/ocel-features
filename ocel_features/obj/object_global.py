@@ -36,20 +36,22 @@ class Object_Global:
 
         # df setup
         o_types = self._log['ocel:global-log']['ocel:object-types']
-        col_name = [f'{_FEATURE_PREFIX}:type_{ot}_count' for ot in o_types]
+        col_name = [f'{_FEATURE_PREFIX}type_{ot}_count' for ot in o_types]
         col_values = [np.uint64(0) for _ in o_types]
 
         # extraction
-        o_count = Counter([o['ocel:type'] for o in self._log['ocel:objects']])
+        o_count = Counter([o['ocel:type']
+                           for o in self._log['ocel:objects'].values()])
+
         for i, col in enumerate(o_types):
             col_values[i] = np.uint64(o_count[col])
 
-        col_name.append(f'{_FEATURE_PREFIX}:type_total_count')
+        col_name.append(f'{_FEATURE_PREFIX}type_total_count')
         col_values.append(np.uint64(sum(o_count.values())))
 
         # add to df
         self._op_log.append(para_log)
-        self._df[col_name] = col_values
+        self._df[col_name] = [col_values]
 
     def add_global_obj_attribute_stats(self):
         # control

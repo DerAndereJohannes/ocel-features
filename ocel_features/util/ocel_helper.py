@@ -98,6 +98,27 @@ def create_subproblem(log, graph, oids: set, eids: set):
     return sublog, subgraph
 
 
+def create_sublog(log, oids, eids):
+    sublog = copy(log)
+    events = log['ocel:events']
+    objects = log['ocel:objects']
+    sublog['ocel:events'] = {k: events[k] for k in events if k in eids}
+    sublog['ocel:objects'] = {k: objects[k] for k in objects if k in oids}
+
+    return sublog
+
+
+def get_relevant_events(log, graph, oids, until_e):
+    events = log['ocel:events']
+    to_add = set()
+    final_time = events[until_e]['ocel:timestamp']
+    for o in oids:
+        oe = graph.nodes[o]['object_events']
+        to_add |= {e for e in oe if events[e]['ocel:timestamp'] < final_time}
+
+    return to_add
+
+
 # def filter_log_by_subgraph(log, subgraph):
 #     new_log = copy(log)
 #     events = log['ocel:events']

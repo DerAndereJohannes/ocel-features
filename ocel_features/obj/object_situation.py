@@ -12,7 +12,7 @@ from ocel_features.util.local_helper import obj_relationship_localities
 from ocel_features.util.data_organization import Operators
 import ocel_features.obj.object_point as op
 import ocel_features.obj.object_global as og
-# import ocel_features.util.ocel_helper as oh
+import ocel_features.util.ocel_helper as oh
 
 
 class Object_Situation:
@@ -384,23 +384,21 @@ def create_object_situations(log, graph, targets,
 class Situation:
     def __init__(self, log, graph, params):
         self._log = log
+        self._sublog = params['sublog']
         self._graph = graph
-        self._objects = set(params['objects'])
-        self._maxevent = params['event']
-        self._maxtime = log['ocel:events'][params['event']]['ocel:timestamp']
+        self._objects = self._sublog['ocel:objects']
+        self._events = self._sublog['ocel:events']
+        self._situation_event = params['situation_event']
+
+        min_time_key = min(self._events,
+                           key=lambda k: self._events[k]['ocel:timestamp'])
+        max_time_key = max(self._events,
+                           key=lambda k: self._events[k]['ocel:timestamp'])
+        self._mintime = log['ocel:events'][min_time_key]['ocel:timestamp']
+        self._maxtime = log['ocel:events'][max_time_key]['ocel:timestamp']
 
         self._df = pd.DataFrame()
-        self._targetdf = pd.DataFrame({
-            params['target_name']: [params['target_feature']]})
-
-        self._events = set()
-        o_add = set()
-        for o in self._objects:
-            for e in graph.nodes[o]['object_events']:
-                if log['ocel:events'][e]['ocel:timestamp'] < self._maxtime:
-                    self._events.add(e)
-                    o_add.update(log['ocel:events'][e]['ocel:omap'])
-        self._objects.update(o_add)
+        self._targetdf = params['target_feature']
 
     def __repr__(self):
         return f'Situation({self._targetdf.to_dict()})'
@@ -563,6 +561,12 @@ class Situation:
     def df_numeric(self):
         return self._df.select_dtypes(include=np.number)
 
+    def __add__(self, other):
+        if type(self) == type(other):
+            if all(self._df.columns == other._df.columns):
+                return pd.concat([self._df, other._df],
+                                 ignore_index=True, sort=True)
+
 
 def validate_event_choice_target(log, graph, target_event, params=None):
     an = params['activities']
@@ -571,10 +575,16 @@ def validate_event_choice_target(log, graph, target_event, params=None):
 
 def event_choice_target(log, graph, target_event, params=None):
     ed = log['ocel:events'][target_event]
-    return {'target_name': 'event choice',
-            'target_feature': ed['ocel:activity'],
-            'objects': ed['ocel:omap'],
-            'event': target_event}
+
+    sobjects = ed['ocel:omap']
+    sevents = oh.get_relevant_events(log, graph, sobjects, target_event)
+    situation_sublog = oh.create_sublog(log, sobjects, sevents)
+    target_feature = pd.DataFrame([{'event choice': ed['ocel:activity']}])
+    return {'target_feature': target_feature,
+            'situation_features': None,
+            'sublog': situation_sublog,
+            'situation_event': target_event
+            }
 
 
 def validate_event_property_target(log, graph, target_event, params=None):
@@ -585,10 +595,18 @@ def validate_event_property_target(log, graph, target_event, params=None):
 def event_property_target(log, graph, target_event, params=None):
     prop = params['property']
     ed = log['ocel:events'][target_event]
-    return {'target_name': f'event <{prop}>',
-            'target_feature': ed['ocel:vmap'][prop],
-            'objects': ed['ocel:omap'],
-            'event': target_event}
+
+    sobjects = ed['ocel:omap']
+    sevents = oh.get_relevant_events(log, graph, sobjects, target_event)
+    situation_sublog = oh.create_sublog(log, sobjects, sevents)
+
+    target_feature = pd.DataFrame([{f'event <{prop}>': ed['ocel:vmap'][prop]}])
+
+    return {'target_feature': target_feature,
+            'situation_features': None,
+            'sublog': situation_sublog,
+            'situation_event': target_event
+            }
 
 
 def validate_event_wait(log, graph, target_event, params=None):
@@ -619,10 +637,18 @@ def event_wait_target(log, graph, target_event, params=None):
             if e_time < oldest_time:
                 oldest_time = e_time
 
-    return {'target_name': 'wait until event',
-            'target_feature': ed['ocel:timestamp'] - oldest_time,
-            'objects': ed['ocel:omap'],
-            'event': target_event}
+    sobjects = ed['ocel:omap']
+    sevents = oh.get_relevant_events(log, graph, sobjects, target_event)
+    situation_sublog = oh.create_sublog(log, sobjects, sevents)
+
+    target_feature = pd.DataFrame([{'wait until event':
+                                    ed['ocel:timestamp'] - oldest_time}])
+
+    return {'target_feature': target_feature,
+            'situation_feature': None,
+            'sublog': situation_sublog,
+            'situation_event': target_event
+            }
 
 
 def validate_object_choice(log, graph, target_event, params=None):
@@ -642,10 +668,18 @@ def object_choice_target(log, graph, target_event, params=None):
     target_object = [o for o in ed['ocel:omap']
                      if objects[o]['ocel:type'] == ot].pop()
 
-    return {'target_name': 'object choice',
-            'target_feature': target_object,
-            'objects': ed['ocel:omap'] | {target_object},
-            'event': target_event}
+    target_feature = pd.DataFrame([{'object choice': target_object}])
+
+    # create sublog
+    sobjects = ed['ocel:omap'] | {target_object}
+    sevents = oh.get_relevant_events(log, graph, sobjects, target_event)
+    situation_sublog = oh.create_sublog(log, sobjects, sevents)
+
+    return {'target_feature': target_feature,
+            'situation_features': None,
+            'sublog': situation_sublog,
+            'situation_event': target_event
+            }
 
 
 def validate_object_property(log, graph, target_object, params=None):
@@ -656,12 +690,20 @@ def validate_object_property(log, graph, target_object, params=None):
 def object_property_target(log, graph, target_object, params=None):
     prop = params['property']
     node = graph.nodes[target_object]
-    interactedo = set(graph.predecessors(target_object)) | {target_object}
+    situation_event = node['object_events'][0]
+    sobjects = set(graph.predecessors(target_object)) | {target_object}
+    sevents = oh.get_relevant_events(log, graph, sobjects, situation_event)
 
-    return {'target_name': f'object <{prop}>',
-            'target_feature': log['ocel:objects'][target_object][prop],
-            'objects': interactedo,
-            'event': node['object_events'][0]}
+    target_feature = pd.DataFrame([{f'object <{prop}>':
+                                    log['ocel:objects'][target_object][prop]}])
+
+    situation_sublog = oh.create_sublog(log, sobjects, sevents)
+
+    return {'target_feature': target_feature,
+            'situation_features': None,
+            'sublog': situation_sublog,
+            'situation_event': situation_event
+            }
 
 
 def validate_object_lifetime(log, graph, target_object, params=None):
@@ -674,22 +716,69 @@ def object_lifetime_target(log, graph, target_object, params=None):
     oe = graph.nodes[target_object]['object_events']
     start_time = events[oe[0]]['ocel:timestamp']
     end_time = events[oe[-1]]['ocel:timestamp']
-    interactedo = {target_object}
+    sobjects = {target_object}
     for e in oe:
-        interactedo |= events[e]['ocel:omap']
+        sobjects |= events[e]['ocel:omap']
 
-    return {'target_name': 'object lifetime',
-            'target_feature': end_time - start_time,
-            'objects': interactedo,
-            'event': oe[-1]}
+    sevents = set()
+    for o in sobjects:
+        sevents |= graph.noes[o]['object_events']
+
+    situation_log = oh.create_sublog(log, sobjects, sevents)
+
+    target_feature = pd.DataFrame([{'object lifetime': end_time - start_time}])
+
+    return {'target_feature': target_feature,
+            'situation_features': None,
+            'sublog': situation_log,
+            'situation_event': oe[-1]
+            }
 
 
-def validate_object_relation(log, graph, target_object):
+def validate_object_relation(log, graph, target_object, params=None):
     pass
 
 
-def object_relation_target(log, graph, target_object):
+def object_relation_target(log, graph, target_object, params=None):
     pass
+
+
+def validate_timeframe(log, graph, params=None):
+    events = log['ocel:events']
+    first_time = events[events.keys()[0]]['ocel:timestamp']
+    last_time = events[events.keys()[-1]]['ocel:timestamp']
+
+    # check if one of the times are between the log bounds
+    return (first_time <= params['start_time'] < last_time) \
+        or (first_time < params['end_time'] <= last_time)
+
+
+def global_timeframe_target(log, graph, params=None):
+    events = log['ocel:events']
+    work_type = params['workload_type']
+    oids = set()
+    eids = []
+
+    # collect all info to do with
+    for e, v in events.items():
+        if params['start_time'] <= v['ocel:timestamp'] <= params['end_time']:
+            eids.append(e)
+            oids.update(v['ocel:omap'])
+
+    situation_log = oh.create_sublog(log, oids, eids)
+
+    if work_type == 'objects':
+        features = og.Object_Global(situation_log, graph)
+        features.add_global_obj_type_count()
+        target_feature = features._df
+    elif work_type == 'events':
+        features = None
+
+    return {'target_feature': target_feature,
+            'situation_feature': None,
+            'sublog': situation_log,
+            'situation_event': None
+            }
 
 
 # format validator function, target feature generator, required props
@@ -701,20 +790,31 @@ class Targets(Enum):
     EVENTPROPERTY = (validate_event_property_target,
                      event_property_target,
                      ['property'])
+    EVENTPROPERTYUNKNOWN = ()
     EVENTWAIT = (validate_event_wait,
                  event_wait_target,
                  [])
     EVENTOBJECTCHOICE = (validate_object_choice,
                          object_choice_target,
                          ['activities', 'object_type'])
+    EVENT_UNKNOWN_PROPERTY = ()
+    EVENT_RELATION_COUNT = ()
     # Object Based -> require an object
     OBJECTPROPERTY = (validate_object_property,
                       object_property_target,
                       ['property'])
+    OBJECTPROPERTYUNKNOWN = ()
     OBJECTLIFETIME = (validate_object_lifetime,
                       object_lifetime_target,
                       ['final_activities'])
     OBJECTRELATION = ()
+    OBJECTUNKNOWNATTR = ()
+
+    # Global Based -> Require a timeframe
+    TIMEWORKLOAD = (validate_timeframe,
+                    global_timeframe_target,
+                    ['start_time', 'end_time', 'workload_type'])
+    TIMEOPPROPERTY = ()
 
 
 def create_situations(log, graph, targets,
