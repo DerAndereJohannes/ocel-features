@@ -1,7 +1,10 @@
 import pandas as pd
 import numpy as np
 import networkx as nx
+import math
+import pytz
 from datetime import datetime
+from collections import Counter
 from enum import Enum
 from copy import copy
 from networkx.algorithms.shortest_paths import shortest_path, \
@@ -577,7 +580,8 @@ def event_choice_target(log, graph, target_event, params=None):
     ed = log['ocel:events'][target_event]
 
     sobjects = ed['ocel:omap']
-    sevents = oh.get_relevant_events(log, graph, sobjects, target_event)
+    sevents = oh.get_relevant_events(log, graph, sobjects,
+                                     oh.get_last_event(log))
     situation_sublog = oh.create_sublog(log, sobjects, sevents)
     target_feature = pd.DataFrame([{'event choice': ed['ocel:activity']}])
     return {'target_feature': target_feature,
@@ -627,15 +631,15 @@ def event_wait_target(log, graph, target_event, params=None):
     ev = log['ocel:events']
     ed = ev[target_event]
 
-    now = datetime.now()
-    oldest_time = now
+    oldest_time = datetime.max.replace(tzinfo=pytz.utc)
     for o in ed['ocel:omap']:
         oe = graph.nodes[o]['object_events']
         if target_event != oe[0]:
             i = oe.index(target_event) - 1
-            e_time = ev[oe[i]]['ocel:timestamp']
-            if e_time < oldest_time:
-                oldest_time = e_time
+            if i >= 0:
+                e_time = ev[oe[i]]['ocel:timestamp']
+                if e_time < oldest_time:
+                    oldest_time = e_time
 
     sobjects = ed['ocel:omap']
     sevents = oh.get_relevant_events(log, graph, sobjects, target_event)
@@ -643,6 +647,50 @@ def event_wait_target(log, graph, target_event, params=None):
 
     target_feature = pd.DataFrame([{'wait until event':
                                     ed['ocel:timestamp'] - oldest_time}])
+
+    return {'target_feature': target_feature,
+            'situation_feature': None,
+            'sublog': situation_sublog,
+            'situation_event': target_event
+            }
+
+
+def validate_event_duration(log, graph, target_event, params=None):
+    ev = log['ocel:events']
+    ed = ev[target_event]
+
+    if not ed['ocel:omap']:
+        return False
+
+    for o in ed['ocel:omap']:
+        oe = graph.nodes[o]['object_events']
+        if target_event != oe[-1]:
+            return True
+    return False
+
+
+def event_duration_target(log, graph, target_event, params=None):
+    ev = log['ocel:events']
+    ed = ev[target_event]
+
+    youngest_time = datetime.max.replace(tzinfo=pytz.utc)
+    last_event = None
+    for o in ed['ocel:omap']:
+        oe = graph.nodes[o]['object_events']
+        if target_event != oe[-1]:
+            i = oe.index(target_event) + 1
+            if i < len(oe):
+                e_time = ev[oe[i]]['ocel:timestamp']
+                if e_time < youngest_time:
+                    youngest_time = e_time
+                    last_event = oe[i]
+
+    sobjects = ed['ocel:omap']
+    sevents = oh.get_relevant_events(log, graph, sobjects, last_event)
+    situation_sublog = oh.create_sublog(log, sobjects, sevents)
+
+    target_feature = pd.DataFrame([{'wait after event':
+                                    youngest_time - ed['ocel:timestamp']}])
 
     return {'target_feature': target_feature,
             'situation_feature': None,
@@ -743,7 +791,7 @@ def object_relation_target(log, graph, target_object, params=None):
     pass
 
 
-def validate_timeframe(log, graph, params=None):
+def validate_timeframe(log, graph, target, params=None):
     events = log['ocel:events']
     first_time = events[events.keys()[0]]['ocel:timestamp']
     last_time = events[events.keys()[-1]]['ocel:timestamp']
@@ -753,7 +801,7 @@ def validate_timeframe(log, graph, params=None):
         or (first_time < params['end_time'] <= last_time)
 
 
-def global_timeframe_target(log, graph, params=None):
+def global_timeframe_target(log, graph, target, params=None):
     events = log['ocel:events']
     work_type = params['workload_type']
     oids = set()
@@ -781,6 +829,154 @@ def global_timeframe_target(log, graph, params=None):
             }
 
 
+def validate_event_property_unknown(log, graph, target_event, params=None):
+    e_dict = log['ocel:events'][target_event]
+    na = {'NaN', 'NA', '', None, math.nan, np.NAN}
+
+    return e_dict['ocel:vmap'][params['target_prop']] in na
+
+
+def event_property_unknown(log, graph, target_event, params=None):
+    events = log['ocel:events']
+    prop = params['target_prop']
+    oids = events[target_event]['ocel:omap']
+    target_feature = pd.DataFrame([{f'event <{prop}>': '???'}])
+    eids = set()
+    for o in oids:
+        eids.update(graph.nodes[o]['object_events'])
+
+    situation_log = oh.create_sublog(log, oids, eids)
+
+    return {'target_feature': target_feature,
+            'situation_feature': None,
+            'sublog': situation_log,
+            'situation_event': target_event
+            }
+
+
+def validate_object_property_unknown(log, graph, target_object, params=None):
+    o_dict = log['ocel:objects'][target_object]
+    na = {'NaN', 'NA', '', None, math.nan, np.NAN}
+
+    return o_dict['ocel:ovmap'][params['target_prop']] in na
+
+
+def object_property_unknown(log, graph, target_object, params=None):
+    node = graph.nodes[target_object]
+    prop = params['target_prop']
+    situation_event = node['object_events'][0]
+    sobjects = set(graph.predecessors(target_object)) | {target_object}
+    sevents = oh.get_relevant_events(log, graph, sobjects,
+                                     oh.get_last_event(log))
+
+    target_feature = pd.DataFrame([{f'object <{prop}>': '???'}])
+
+    situation_log = oh.create_sublog(log, sobjects, sevents)
+
+    return {'target_feature': target_feature,
+            'situation_feature': None,
+            'sublog': situation_log,
+            'situation_event': situation_event
+            }
+
+
+def validate_object_missing_an(log, graph, target_object, params=None):
+    node = graph.nodes[target_object]
+    mia_activities = params['required_an']
+    oan = set(oh.get_an_trace(log, node['object_events']))
+
+    return mia_activities not in oan
+
+
+def object_missing_an(log, graph, target_object, params=None):
+    events = log['ocel:events']
+    oe = graph.nodes[target_object]['object_events']
+    mia_an = params['required_an'] - set(oh.get_an_trace(log, oe))
+    sevents = oe
+    sobjects = set()
+    for e in sevents:
+        sobjects.update(events[e]['ocel:omap'])
+
+    situation_log = oh.create_sublog(log, sobjects, sevents)
+    target_feature = pd.DataFrame([{'missing an': mia_an}])
+
+    return {'target_feature': target_feature,
+            'situation_feature': None,
+            'sublog': situation_log,
+            'situation_event': None
+            }
+
+
+def validate_event_missing_ot(log, graph, target_event, params=None):
+    objects = log['ocel:objects']
+    mia_ot = params['required_ot']  # dict with ot as key, count as value
+    e_omap = Counter([objects[o]['ocel:type']
+                      for o in log['ocel:events']['ocel:omap']])
+
+    for k, v in mia_ot.items():
+        if e_omap[k] < v:
+            return True
+
+    return False
+
+
+def event_missing_ot(log, graph, target_event, params=None):
+    events = log['ocel:events']
+    objects = log['ocel:objects']
+
+    sobjects = events[target_event]['ocel:omap']
+    o_types = Counter([objects[o]['ocel:type'] for o in sobjects])
+    sevents = set()
+    missing = params['required_ot'] - o_types
+
+    for o in sobjects:
+        # add events
+        sevents.update(graph.nodes[o]['object_events'])
+
+    situation_log = oh.create_sublog(log, sobjects, sevents)
+    target_feature = pd.DataFrame([{'missing ot': missing}])
+
+    return {'target_feature': target_feature,
+            'situation_feature': None,
+            'sublog': situation_log,
+            'situation_event': target_event
+            }
+
+
+def validate_object_missing_reachable_ot(log, graph, target_object, params):
+    objects = log['ocel:objects']
+    o_next = nx.descendants(graph, target_object)
+    o_types = Counter([objects[o]['ocel:type'] for o in o_next])
+
+    return params['required_ot'] - o_types
+
+
+def object_missing_reachable_ot(log, graph, target_object, params):
+    events = log['ocel:events']
+    objects = log['ocel:objects']
+    o_next = nx.descendants(graph, target_object)
+    o_types = Counter([objects[o]['ocel:type'] for o in o_next])
+    sevents = graph.nodes[target_object]['object_events']
+    sobjects = o_next
+    for e in sevents:
+        sobjects.update(events[e]['ocel:omap'])
+
+    missing = params['required_ot'] - o_types
+    target_feature = pd.DataFrame([{'missing reachable ot': missing}])
+
+    situation_log = oh.create_sublog(log, sobjects, sevents)
+
+    return {'target_feature': target_feature,
+            'situation_feature': None,
+            'sublog': situation_log,
+            'situation_event': None
+            }
+
+# def validate_event_missing_relation(log, graph, target_event, params):
+#     for u, v, data in graph.edges(data=True):
+#         for k, v in data.items():
+
+
 # format validator function, target feature generator, required props
 class Targets(Enum):
     # Event Based -> require an event
@@ -790,25 +986,45 @@ class Targets(Enum):
     EVENTPROPERTY = (validate_event_property_target,
                      event_property_target,
                      ['property'])
-    EVENTPROPERTYUNKNOWN = ()
+    EVENT_PROPERTY_UNKNOWN = (validate_event_property_unknown,
+                              event_property_unknown,
+                              ['target_prop'])
     EVENTWAIT = (validate_event_wait,
                  event_wait_target,
                  [])
+    EVENT_DURATION = (validate_event_duration,
+                      event_duration_target,
+                      [])
     EVENTOBJECTCHOICE = (validate_object_choice,
                          object_choice_target,
                          ['activities', 'object_type'])
-    EVENT_UNKNOWN_PROPERTY = ()
-    EVENT_RELATION_COUNT = ()
+
+    EVENT_MISSING_REL = ()
+
+    EVENT_MISSING_OT = (validate_event_missing_ot,
+                        event_missing_ot,
+                        ['required_ot'])
     # Object Based -> require an object
     OBJECTPROPERTY = (validate_object_property,
                       object_property_target,
                       ['property'])
-    OBJECTPROPERTYUNKNOWN = ()
+    OBJECTPROPERTYUNKNOWN = (validate_object_property_unknown,
+                             object_property_unknown,
+                             [])
+
+    OBJECT_MISSING_ACTIVITY = (validate_object_missing_an,
+                               object_missing_an,
+                               ['required_an'])
     OBJECTLIFETIME = (validate_object_lifetime,
                       object_lifetime_target,
                       ['final_activities'])
-    OBJECTRELATION = ()
-    OBJECTUNKNOWNATTR = ()
+    OBJECT_MISSING_REACHABLE_OT = (validate_object_missing_reachable_ot,
+                                   object_missing_reachable_ot,
+                                   ['required_ot'])
+
+    # local based -> require target object (based on its lineage/locality)
+    LINEAGE_PROPERTY_OP = ()
+    LINEAGE_MISSING_OT = ()
 
     # Global Based -> Require a timeframe
     TIMEWORKLOAD = (validate_timeframe,
@@ -824,7 +1040,7 @@ def create_situations(log, graph, targets,
     validator = target_feature.value[0]
     target_creator = target_feature.value[1]
     req_params = target_feature.value[2]
-    # check properties
+    # check param properties
     if req_params and not params:
         print('Please provide parameters',
               f'{req_params} to use {Targets(target_feature).name}.')

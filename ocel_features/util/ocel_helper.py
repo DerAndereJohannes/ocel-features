@@ -1,7 +1,6 @@
 import ocel
 from math import isnan
 from copy import copy
-# from copy import copy
 
 OBJECTS = 'ocel:objects'
 EVENTS = 'ocel:events'
@@ -117,6 +116,16 @@ def get_relevant_events(log, graph, oids, until_e):
         to_add |= {e for e in oe if events[e]['ocel:timestamp'] < final_time}
 
     return to_add
+
+
+def get_last_event(log):
+    return max(log['ocel:events'],
+               key=lambda k: log['ocel:events'][k]['ocel:timestamp'])
+
+
+def get_first_event(log):
+    return min(log['ocel:events'],
+               key=lambda k: log['ocel:events'][k]['ocel:timestamp'])
 
 
 # def filter_log_by_subgraph(log, subgraph):
