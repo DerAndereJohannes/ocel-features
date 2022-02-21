@@ -5,6 +5,7 @@ import math
 import pytz
 from datetime import datetime
 from collections import Counter
+from itertools import combinations
 from enum import Enum
 from copy import copy
 from networkx.algorithms.shortest_paths import shortest_path, \
@@ -972,9 +973,52 @@ def object_missing_reachable_ot(log, graph, target_object, params):
             'situation_event': None
             }
 
-# def validate_event_missing_relation(log, graph, target_event, params):
-#     for u, v, data in graph.edges(data=True):
-#         for k, v in data.items():
+
+def validate_event_missing_relation(log, graph, target_event, params):
+    e_dict = log['ocel:events'][target_event]
+    req_rel = params['required_rel']
+    rel_count = Counter()
+    for o1, o2 in combinations(e_dict['ocel:omap'], 2):
+        if o2 in graph[o1]:
+            for rel, ev in graph[o1][o2].items():
+                if target_event in ev:
+                    rel_count.update([rel])
+        if o1 in graph[o2]:
+            for rel, ev in graph[o2][o1].items():
+                if target_event in ev:
+                    rel_count.update([rel])
+
+    return req_rel - rel_count
+
+
+def event_missing_relation(log, graph, target_event, params):
+    ed = log['ocel:events'][target_event]
+
+    sobjects = ed['ocel:omap']
+    sevents = oh.get_relevant_events(log, graph, sobjects,
+                                     oh.get_last_event(log))
+    situation_sublog = oh.create_sublog(log, sobjects, sevents)
+
+    # get relation count difference
+    req_rel = params['required_rel']
+    rel_count = Counter()
+    for o1, o2 in combinations(ed['ocel:omap'], 2):
+        if o2 in graph[o1]:
+            for rel, ev in graph[o1][o2].items():
+                if target_event in ev:
+                    rel_count.update([rel])
+        if o1 in graph[o2]:
+            for rel, ev in graph[o2][o1].items():
+                if target_event in ev:
+                    rel_count.update([rel])
+
+    target_feature = pd.DataFrame([{'missing relations': req_rel - rel_count}])
+
+    return {'target_feature': target_feature,
+            'situation_features': None,
+            'sublog': situation_sublog,
+            'situation_event': target_event
+            }
 
 
 # format validator function, target feature generator, required props
@@ -999,7 +1043,9 @@ class Targets(Enum):
                          object_choice_target,
                          ['activities', 'object_type'])
 
-    EVENT_MISSING_REL = ()
+    EVENT_MISSING_REL = (validate_event_missing_relation,
+                         event_missing_relation,
+                         ['required_rel'])
 
     EVENT_MISSING_OT = (validate_event_missing_ot,
                         event_missing_ot,
