@@ -337,7 +337,7 @@ def relation_shorthand(rel):
 
 def create_object_centric_graph(log, relations=None):
     if relations is None:
-        relations = [Relations.ANCESTORS2DESCENDANTS]
+        relations = [Relations.DESCENDANTS]
 
     return create_multi_graph(log, relations)
 
