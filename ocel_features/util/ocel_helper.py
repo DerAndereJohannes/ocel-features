@@ -128,6 +128,31 @@ def get_first_event(log):
                key=lambda k: log['ocel:events'][k]['ocel:timestamp'])
 
 
+def filter_n_events(log, n):
+    new_e_dict = {}
+    for i, t in enumerate(log['ocel:events'].items()):
+        if i >= n:
+            break
+
+        new_e_dict[t[0]] = t[1]
+
+    log['ocel:events'] = new_e_dict
+
+
+def remove_ot(log, ot):
+    ot = ot if isinstance(ot, set) else set(ot)
+    events = log['ocel:events']
+    objects = log['ocel:objects']
+
+    # remove ot from events
+    for k, v in events.items():
+        v['ocel:omap'] = {x for x in v['ocel:omap']
+                          if objects[x]['ocel:type'] not in ot}
+
+    # remove from all objects
+    log['ocel:objects'] = {k: v for k, v in objects
+                           if v['ocel:type'] not in ot}
+
 # def filter_log_by_subgraph(log, subgraph):
 #     new_log = copy(log)
 #     events = log['ocel:events']

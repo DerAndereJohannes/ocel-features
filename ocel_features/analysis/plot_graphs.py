@@ -8,7 +8,7 @@ def save_graph_graphviz(net, layout='dot', name='test_graph'):
     ag = nx.nx_agraph.to_agraph(net)
     ag.layout(layout)
     ag.draw(f'{name}.png')
-    os.system(f'open {name}.png')
+    os.system(f'xdg-open {name}.png')
 
 
 def show_graph_plt(net, labels=False):
