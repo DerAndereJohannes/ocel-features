@@ -1,4 +1,5 @@
 from neo4j import GraphDatabase
+import networkx as nx
 
 
 class neo4j_exporter:
@@ -40,4 +41,59 @@ class neo4j_exporter:
 
 def create_node_str(n_dict):
     return f"{{id: '{n_dict['id']}'," \
-                f"first_occurance: {n_dict['first_occurance']}}}"
+        f"first_occurance: {n_dict['first_occurance']}}}"
+
+
+def convert_log_to_labeled_graph(log):
+    # setup
+    events = log['ocel:events']
+    objects = log['ocel:objects']
+    graph = nx.Graph()
+
+    # add all nodes
+    graph.add_nodes_from([(k, v) for k, v in events.items()])
+    graph.add_nodes_from([(k, v) for k, v in objects.items()])
+
+    # add all edges
+    for e, v in events.items():
+        for o in v['ocel:omap']:
+            graph.add_edge(e, o)
+
+        graph.nodes[e].pop('ocel:omap')
+
+    return graph
+
+
+def convert_labeled_graph_to_log(graph):
+    log = {'ocel:objects': {},
+           'ocel:events': {},
+           'ocel:global-log': {'ocel:version': '0.1',
+                               'ocel:ordering': 'timestamp',
+                               'ocel:attribute-names': set(),
+                               'ocel:object-types': set()}
+           }
+    for n in graph.nodes():
+        # if the node is an object or an event
+        if 'ocel:type' in graph.nodes[n]:  # it is an object
+            log['ocel:objects'][n] = graph.nodes[n]
+            log['ocel:global-log']['ocel:object-types'].add(
+                graph.nodes[n]['ocel:type'])
+            log['ocel:global-log']['ocel:attribute-names'].update(
+                {attr for attr in graph.nodes[n]['ocel:ovmap']})
+        else:  # it is an event
+            e_dict = graph.nodes[n]
+            e_dict['ocel:omap'] = [t[1] for t in nx.edges(graph, n)]
+            # print(n, e_dict)
+            log['ocel:global-log']['ocel:attribute-names'].update(
+                {attr for attr in e_dict['ocel:vmap']})
+            log['ocel:events'][n] = e_dict
+
+    # final cleanup
+    log['ocel:global-log']['ocel:attribute-names'] = list(
+        log['ocel:global-log']['ocel:attribute-names'])
+    log['ocel:global-log']['ocel:object-types'] = list(
+        log['ocel:global-log']['ocel:object-types'])
+    log['ocel:events'] = sorted(
+        log['ocel:events'].items(), key=lambda x: x[1]['ocel:timestamp'])
+
+    return log
