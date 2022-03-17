@@ -29,5 +29,11 @@ def show_graph_plt(net, labels=False):
 
         nx.draw_networkx_edge_labels(net, pos, edge_labels)
 
-    nx.draw(net, pos=pos, width=weights, with_labels=True)
+    nx.draw(net, pos=pos, width=weights, with_labels=False)
+    plt.show()
+
+
+def basic_graphviz(net):
+    plt.figure()
+    nx.draw(net, with_labels=True)
     plt.show()

@@ -802,7 +802,7 @@ def validate_timeframe(log, graph, target, params=None):
         or (first_time < params['end_time'] <= last_time)
 
 
-def global_timeframe_target(log, graph, target, params=None):
+def global_timeframe_target(log, graph, target, params):
     events = log['ocel:events']
     work_type = params['workload_type']
     oids = set()

@@ -1,5 +1,7 @@
 from neo4j import GraphDatabase
 import networkx as nx
+from datetime import timedelta
+from copy import copy
 
 
 class neo4j_exporter:
@@ -97,3 +99,68 @@ def convert_labeled_graph_to_log(graph):
         log['ocel:events'].items(), key=lambda x: x[1]['ocel:timestamp'])
 
     return log
+
+
+def event_directly_follows(log):
+    o_dict = {o: [] for o in log['ocel:objects']}
+    graph = nx.DiGraph()
+    graph.add_nodes_from([(k, v) for k, v in log['ocel:events'].items()])
+
+    # create object events
+    for e, v in log['ocel:events'].items():
+        for o in v['ocel:omap']:
+            # if there is already an event in the object events
+            if o_dict[o]:
+                graph.add_edge(o_dict[o][-1], e)
+
+            o_dict[o].append(e)
+
+    return graph
+
+
+def split_by_time(log, start_time, time_delta):
+    end_time = start_time + time_delta
+    log_events = []
+
+    for e, v in log['ocel:events'].items():
+        if start_time <= v['ocel:timestamp'] <= end_time:
+            log_events.append(e)
+        elif log_events:
+            # if it is done iterating
+            return log_events
+
+    return log_events
+
+
+def split_by_days_of_week(log, days):
+    log_events = {}
+
+    for e, v in log['ocel:events'].items():
+        e_time = v['ocel:timestamp']
+        week_start = (e_time - timedelta(days=e_time.weekday())).date()
+
+        # only accept wanted days of week
+        if e_time.weekday() in days:
+            if week_start not in log_events:
+                log_events[week_start] = {'ocel:events': [],
+                                          'ocel:objects': set()}
+            log_events[week_start]['ocel:events'].append(e)
+            log_events[week_start]['ocel:objects'].update(
+                log['ocel:events'][e]['ocel:omap'])
+
+    return log_events
+
+
+def get_weekly_graphs(log, days):
+    week_logs = split_by_days_of_week(log, days)
+    week_graphs = {}
+
+    for k, v in week_logs.items():
+        week_log = copy(log)
+        week_log['ocel:events'] = {e: log['ocel:events'][e]
+                                   for e in v['ocel:events']}
+        week_log['ocel:objects'] = {o: log['ocel:objects'][o]
+                                    for o in v['ocel:objects']}
+        week_graphs[k] = convert_log_to_labeled_graph(week_log)
+
+    return week_graphs
