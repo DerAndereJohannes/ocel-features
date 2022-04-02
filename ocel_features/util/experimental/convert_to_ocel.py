@@ -33,6 +33,7 @@ def xes_to_ocel():
         
         log['ocel:objects'][a_id] = new_object
 
+        
         for e in case:
             new_event = {'ocel:activity': e['concept:name'], 
                          'ocel:timestamp': e['time:timestamp'], 
@@ -47,6 +48,13 @@ def xes_to_ocel():
                     new_event['ocel:omap'].add(e['OfferID'])
             
             log['ocel:events'][f'e{e_number}'] = new_event
+            
+            if 'org:resource' in e and e['org:resource'] not in log['ocel:objects']:
+                new_resource = {'ocel:type': 'Resource', 'ocel:ovmap': {}}
+                log['ocel:objects'][e['org:resource']] = new_resource
+
+
+
             e_number = e_number + 1
     
     return log
