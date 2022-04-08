@@ -2,7 +2,10 @@ import ocel
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import networkx as nx
+import scaleogram as scg
 from mpl_toolkits.mplot3d import Axes3D
+from collections import Counter
 
 
 def plot_2d(X, row_ids, log):
@@ -42,3 +45,24 @@ def plot_3d(X, row_ids, log):
     ax.scatter(X[:, 0], X[:, 1], X[:, 2], c=colour_choice)
     plt.legend(handles=colour_handles)
     plt.show()
+
+
+def plot_time_series_scatter(series):
+    fig, ax = plt.subplots()
+    ax.scatter(list(range(len(series))), series)
+    plt.show()
+
+
+def plot_time_series_wavelet(series, scaling=None):
+    try:
+        scg.cws(series)
+    except Exception:
+        pass
+
+
+def plot_degree_graph(graph):
+    plt.figure()
+    data_xy = Counter([x[1] for x in nx.degree(graph)])
+    plt.scatter(data_xy.keys(), data_xy.values())
+    plt.show()
+

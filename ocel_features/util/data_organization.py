@@ -75,3 +75,22 @@ class Operators(Enum):
     AVG = (get_avg,)
     MAX = (get_max,)
     MIN = (get_min,)
+
+
+def check_params(params, req_params):
+    # check param properties
+    if req_params and not params:
+        print('Please provide parameters',
+              f'{req_params} to use this variant.')
+        return 0
+    elif params:
+        not_contained = []
+        for p in req_params:
+            if p not in params:
+                not_contained.append(p)
+        if not_contained:
+            print('Please additionally provide parameters',
+                  f'{req_params} to use this variant.')
+            return 0
+
+    return 1

@@ -1,5 +1,5 @@
 import pm4py
-import ocel 
+import ocel
 
 def xes_to_ocel():
     log = {'ocel:objects': {},
@@ -17,7 +17,7 @@ def xes_to_ocel():
         o_id = o_obj['concept:name']
 
         new_object = {'ocel:type': 'Offer', 'ocel:ovmap': {k: v for k, v in o_obj.items() if k not in {'concept:name'}}}
-        
+
         log['ocel:objects'][o_id] = new_object
 
 
@@ -30,14 +30,14 @@ def xes_to_ocel():
         a_id = a_obj['concept:name']
 
         new_object = {'ocel:type': 'Application', 'ocel:ovmap': {k: v for k, v in a_obj.items() if k not in {'concept:name'}}}
-        
+
         log['ocel:objects'][a_id] = new_object
 
-        
+
         for e in case:
-            new_event = {'ocel:activity': e['concept:name'], 
-                         'ocel:timestamp': e['time:timestamp'], 
-                         'ocel:omap': {a_id, e['org:resource']}, 
+            new_event = {'ocel:activity': e['concept:name'],
+                         'ocel:timestamp': e['time:timestamp'],
+                         'ocel:omap': {a_id, e['org:resource']},
                          'ocel:vmap': {k: att for k, att in e.items() if k not in {'EventID', 'EventOrigin', 'org:resource'}}
                     }
 
@@ -46,19 +46,26 @@ def xes_to_ocel():
                     new_event['ocel:omap'].add(e['EventID'])
                 else:
                     new_event['ocel:omap'].add(e['OfferID'])
-            
+
+            elif 'W_' in e['concept:name']:
+                work_item = e['EventID']
+                if work_item not in log['ocel:objects']:
+                    new_object = {'ocel:type': 'Workflow', 'ocel:ovmap': {}}
+                    log['ocel:objects'][work_item] = new_object
+
+                new_event['ocel:omap'].add(e['EventID'])
+
             log['ocel:events'][f'e{e_number}'] = new_event
-            
+
             if 'org:resource' in e and e['org:resource'] not in log['ocel:objects']:
                 new_resource = {'ocel:type': 'Resource', 'ocel:ovmap': {}}
                 log['ocel:objects'][e['org:resource']] = new_resource
 
-
-
             e_number = e_number + 1
-    
+
+
     return log
 
 
 
- 
+
