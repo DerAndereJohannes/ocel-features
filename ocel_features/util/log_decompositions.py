@@ -133,4 +133,3 @@ def decompose_log(log, decomp=Decompositions.TIME_DELTA, params=None):
         sublogs.append(new_log)
 
     return sublogs
-

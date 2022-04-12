@@ -125,9 +125,10 @@ class Decompositions(Enum):
     POINTWISE_RELATION = (pointwise_relation_decomp,)
 
 
-def decomp_graph_relations(log, graph, decomp=Decompositions.GLOBAL_RELATION):
+def decomp_graph_relations(log, graph,
+                           decomp=Decompositions.GLOBAL_RELATION, params=None):
     graph = graph.copy()
-    violations = decomp[0](log, graph)
+    violations = decomp.value[0](log, graph, params)
     graph.remove_edges_from(violations)
     return graph
 
@@ -137,7 +138,7 @@ def get_disconnected_subgraphs(graph):
     return [graph.subgraph(snodes) for snodes in subgraph_nodes]
 
 
-def get_relation_dict(log, graph):
+def get_event_relation_dict(log, graph):
     relation_matrix, o_types = generate_global_relation_matrix(log, graph)
     rel = {0: 'None', 1: 'Single', 2: 'Many'}
     rel_dict = {i: {j: 0} for i, j in product(o_types.keys(), o_types.keys())}
@@ -153,4 +154,12 @@ def summarize_relations(rel_dict):
     indicies = list(combinations(rel_dict.keys(), 2)) \
                     + [(k, k) for k in rel_dict.keys()]
     for i, j in indicies:
-        print(f'{i} -> {j}: {rel_dict[i][j]}, {j} -> {i}: {rel_dict[j][i]}')
+        print(f'{i} -> {j}: {rel_dict[i][j]}\n {j} -> {i}: {rel_dict[j][i]}')
+
+
+def create_subgraph_from_edges(graph, edges):
+    pass
+
+
+def create_subgraph_from_nodes(graph, nodes):
+    pass

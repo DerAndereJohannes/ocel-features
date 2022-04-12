@@ -141,8 +141,7 @@ def series_differences_percentage(series, norm=False):
             out[i] = 1
 
     if norm:
-        max_val = max(out)
+        max_val = max([abs(o) for o in out])
         return list(map(lambda x: x/max_val, out))
 
     return out
-
