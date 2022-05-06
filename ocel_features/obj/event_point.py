@@ -85,7 +85,7 @@ class Event_Based:
         self._op_log.append(para_log)
         self._df[col_name] = col_values
 
-    def add_new_obj_created_counts(self):
+    def add_output_object_counts(self):
         # control
         para_log = (func_name(), )
         if para_log in self._df.columns:
@@ -98,15 +98,44 @@ class Event_Based:
         ot_index = {ot: i for i, ot in enumerate(obj_types)}
         ot_index['TOTAL'] = len(obj_types)
         row_count = len(self._df.index)
-        col_name = [f'{_FEATURE_PREFIX}obj_{ot}_created_count'
+        col_name = [f'{_FEATURE_PREFIX}obj_{ot}_output_count'
                     for ot in obj_types]
-        col_name.append(f'{_FEATURE_PREFIX}otype_TOTAL_created_count')
+        col_name.append(f'{_FEATURE_PREFIX}otype_TOTAL_output_count')
         col_values = np.zeros((row_count, len(col_name)), dtype=np.uint64)
 
         for obj, prop in objects.items():
             event_index = self._ev_index[prop['object_events'][0]]
             col_values[event_index][ot_index[prop['type']]] += 1
             col_values[event_index][ot_index['TOTAL']] += 1
+
+        # add to df
+        self._op_log.append(para_log)
+        self._df[col_name] = col_values
+
+    def add_input_object_counts(self):
+        # control
+        para_log = (func_name(), )
+        if para_log in self._df.columns:
+            print(f'[!] {para_log} already computed. Skipping..')
+            return
+
+        # df setup
+        objects = self._graph.nodes()
+        obj_types = self._log['ocel:global-log']['ocel:object-types']
+        ot_index = {ot: i for i, ot in enumerate(obj_types)}
+        ot_index['TOTAL'] = len(obj_types)
+        row_count = len(self._df.index)
+        col_name = [f'{_FEATURE_PREFIX}obj_{ot}_input_count'
+                    for ot in obj_types]
+        col_name.append(f'{_FEATURE_PREFIX}otype_TOTAL_input_count')
+        col_values = np.zeros((row_count, len(col_name)), dtype=np.uint64)
+
+        for obj, prop in objects.items():
+            e_indexes = [self._ev_index[e] for e in prop['object_events'][1:]]
+
+            for event_index in e_indexes:
+                col_values[event_index][ot_index[prop['type']]] += 1
+                col_values[event_index][ot_index['TOTAL']] += 1
 
         # add to df
         self._op_log.append(para_log)

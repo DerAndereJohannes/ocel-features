@@ -2,7 +2,10 @@ import inspect
 import pandas as pd
 import numpy as np
 import ocel_features.util.relations_helper as rh
+from itertools import product
+from collections import Counter
 from ocel_features.util.multigraph import get_younger_obj, get_older_obj
+from ocel_features.util.data_organization import Operators, execute_operator
 from sklearn.decomposition import PCA
 from ocel_features.util.multigraph import create_object_centric_graph
 from ocel_features.util.ocel_helper import get_activity_names
@@ -78,6 +81,73 @@ class Object_Based:
             for j in range(len(log_an)):
                 if log_an[j] in obj_an_set:
                     col_values[j][i] = 1
+
+        # add to df
+        self._op_log.append(para_log)
+        self._df[col_name] = col_values
+
+    def add_activity_existence_count(self):
+        # control
+        para_log = (func_name(),)
+        if para_log in self._op_log:
+            print(f'[!] {para_log} already computed. Skipping..')
+            return
+
+        # df setup
+        log_an = get_activity_names(self._log)
+        e_dict = self._log['ocel:events']
+        col_name = [f'{_FEATURE_PREFIX}activity:{an}' for an in log_an]
+        row_count = len(self._df.index)
+        col_values = [np.zeros(row_count, dtype=np.bool8) for _ in log_an]
+
+        # extraction DONE
+        for i in range(row_count):
+            oid = self._df.iloc[i, 0]
+            an_c = Counter([e_dict[a]['ocel:activity']
+                           for a in self._graph.nodes[oid]['object_events']])
+
+            for j in range(len(log_an)):
+                if log_an[j] in an_c:
+                    col_values[j][i] = an_c[log_an[j]]
+
+        # add to df
+        self._op_log.append(para_log)
+        self._df[col_name] = col_values
+
+    def add_activity_value_operator(self, op=Operators.SUM):
+        # control
+        para_log = (func_name(),)
+        if para_log in self._op_log:
+            print(f'[!] {para_log} already computed. Skipping..')
+            return
+
+        # df setup
+        log_an = get_activity_names(self._log)
+        log_pn = self._log['ocel:global-log']['ocel:attribute-names']
+
+        # save the column number (pfew...)
+        anpn_combo = {combo: i
+                      for i, combo in enumerate(product(log_an, log_pn))}
+
+        col_name = [f'{_FEATURE_PREFIX}activity:{an}:{pn}'
+                    for an, pn in anpn_combo]
+        row_count = len(self._df.index)
+        col_values = [np.zeros(row_count, dtype=np.float64)
+                      for _ in col_name]
+
+        # extraction
+        for i in range(row_count):
+            oid = self._df.iloc[i, 0]
+            oe_values = {anpn: [] for anpn in anpn_combo}
+            oe = self._graph.nodes[oid]['object_events']
+
+            for e in oe:
+                an = e['ocel:activity']
+                for pn, value in e['ocel:vmap']:
+                    oe_values[(an, pn)].append(value)
+
+            for j, anpn in enumerate(anpn_combo):
+                col_values[j][i] = execute_operator(op, oe_values[anpn])
 
         # add to df
         self._op_log.append(para_log)
@@ -172,7 +242,7 @@ class Object_Based:
                     obj_same_type = False
                     for other_o_k in curr_event['ocel:omap']:
                         if oid != other_o_k and o_dict[oid]['ocel:type'] \
-                         == o_dict[other_o_k]['ocel:type']:
+                                == o_dict[other_o_k]['ocel:type']:
                             obj_same_type = True
                             break
                     if not obj_same_type:
@@ -395,6 +465,30 @@ class Object_Based:
             if relations:
                 for j, rel in enumerate(rels):
                     col_values[i][j] = relations[rel]
+
+        # add to df
+        self._op_log.append(para_log)
+        self._df[col_name] = col_values
+
+    # count number of times object is in a subgraph
+    def add_subgraph_existence_count(self, subgraphs):
+        # control
+        para_log = (func_name(), f'subgraphs with {len(subgraphs)} items.')
+        if para_log in self._df.columns:
+            print(f'[!] {para_log} already computed. Skipping..')
+            return
+
+        # df setup
+        col_name = f'{_FEATURE_PREFIX}:subgraph_existence'
+        row_count = len(self._df.index)
+        col_values = np.zeros(row_count, dtype=np.uint64)
+
+        # extraction
+        for i in range(row_count):
+            oid = self._df.iloc[i, 0]
+            oid_count = sum([oid in s for s in subgraphs])
+
+            col_values[i] = oid_count
 
         # add to df
         self._op_log.append(para_log)

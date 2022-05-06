@@ -77,6 +77,14 @@ class Operators(Enum):
     MIN = (get_min,)
 
 
+def execute_operator(op, series):
+    return op.value[0](series)
+
+
+def operator_name(op):
+    return Operators(op).name
+
+
 def check_params(params, req_params):
     # check param properties
     if req_params and not params:
