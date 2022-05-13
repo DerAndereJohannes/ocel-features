@@ -1,7 +1,7 @@
 import os
 from ocel_features.util.multigraph import Relations, all_relations, \
  create_object_centric_graph, import_multigraph, export_multigraph
-from ocel_features.util.experimental.convert_to_n4j import \
+from ocel_features.util.experimental.convert_neo4j import \
     convert_log_to_labeled_graph, convert_labeled_graph_to_log, \
     event_directly_follows
 
