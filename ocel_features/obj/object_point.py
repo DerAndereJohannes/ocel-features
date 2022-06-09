@@ -153,6 +153,45 @@ class Object_Based:
         self._op_log.append(para_log)
         self._df[col_name] = col_values
 
+    def add_object_type_relations_value_operator(self, op=Operators.SUM):
+        # control
+        para_log = (func_name(),)
+        if para_log in self._op_log:
+            print(f'[!] {para_log} already computed. Skipping..')
+            return
+
+        # df setup
+        log_ot = self._log['ocel:global-log']['ocel:object-types']
+        log_pn = self._log['ocel:global-log']['ocel:attribute-names']
+
+        # save the column number (pfew...)
+        otpn_combo = {combo: i
+                      for i, combo in enumerate(product(log_ot, log_pn))}
+
+        col_name = [f'{_FEATURE_PREFIX}OT:{ot}:{pn}'
+                    for ot, pn in otpn_combo]
+        row_count = len(self._df.index)
+        col_values = [np.zeros(row_count, dtype=np.float64)
+                      for _ in col_name]
+
+        # extraction
+        for i in range(row_count):
+            oid = self._df.iloc[i, 0]
+            ot_values = {otpn: [] for otpn in otpn_combo}
+            neighbors = self._graph.neighbors(oid)
+
+            for n in neighbors:
+                ot = self._log['ocel:objects']['ocel:type']
+                for pn, value in n['ocel:vmap']:
+                    ot_values[(ot, pn)].append(value)
+
+            for j, otpn in enumerate(otpn_combo):
+                col_values[j][i] = execute_operator(op, ot_values[otpn])
+
+        # add to df
+        self._op_log.append(para_log)
+        self._df[col_name] = col_values
+
     def add_activity_existence_pca(self, n_components=None):
         # parameter checking
         log_an = get_activity_names(self._log)

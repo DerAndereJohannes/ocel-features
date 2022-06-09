@@ -304,20 +304,21 @@ def add_engagement(net, log, event, src, tar, rel_names):
 
 # MAIN FUNCTIONS
 class Relations(Enum):
-    INTERACTS = (add_interaction, )
     DESCENDANTS = (add_descendants, )
+    INHERITANCE = (add_inheritance, )
+    CONSUMES = (add_consumes, )
+    SPLIT = (add_split, )
+    MERGE = (add_merge, )
     ANCESTORS = (add_ancestors, )
     ANCESTORS2DESCENDANTS = (add_lineage, )
     COBIRTH = (add_cobirth, )
     CODEATH = (add_codeath, )
     COLIFE = (add_colife, )
-    MERGE = (add_merge, )
-    INHERITANCE = (add_inheritance, )
     MINION = (add_minion, )
     PEELER = (add_peeler, )
-    CONSUMES = (add_consumes, )
     PARTOF = (add_partof, )
     ENGAGES = (add_engagement, )
+    INTERACTS = (add_interaction, )
 
 
 def all_relations():
@@ -356,3 +357,18 @@ def rel_subgraph(graph, rels):
                  if [p for p in e if p in rels]]
 
     return graph.edge_subgraph(rel_edges)
+
+
+# priority is based on the order in the enum object
+def get_priority_relation_graph(graph):
+    view_graph = type(graph)()
+    edges = graph.edges()
+    prio_order = [r.name for r in all_relations()]
+    for e in edges:
+        rels = edges[e]
+        for r in prio_order:
+            if r in rels:
+                view_graph.add_edge(*e, r=None)
+                break
+
+    return view_graph
