@@ -267,10 +267,14 @@ def generate_successors(process, timestamp, active_event, successors):
                 new_active_event[1] = act
                 new_active_event[3] = 'wait'
                 wait_time = process.nodes[act]['wait_time']
+
                 if wait_time:
                     new_timestamp = timestamp + int(compute_rvs(wait_time))
-                    if new_timestamp < timestamp: # CONTINUTE HERE
-                    readd_events.append((new_timestamp, new_active_event))
+                    new_event = (new_timestamp, new_active_event)
+                    if new_timestamp > timestamp:
+                        readd_events.append(new_event)
+                    else:
+                        new_events.append(new_event)
                 else:
                     new_events.append((timestamp, new_active_event))
 

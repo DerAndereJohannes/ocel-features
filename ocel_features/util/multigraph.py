@@ -178,6 +178,16 @@ def add_interaction(net, log, event, src, tar, rel_names):
     add_undirected_edge(net, event, src, tar, rel_names)
 
 
+def add_last_interaction(net, log, event, src, tar, rel_names):
+    events = log['ocel:events']
+    for e in net.nodes[src]['object_events']:
+        e_omap = events[e]['ocel:omap']
+        if {src, tar}.issubset(e_omap):
+            add_undirected_edge(net, event, src, tar, rel_names)
+        elif src in e_omap or tar in e_omap:
+            break
+
+
 def add_descendants(net, log, event, src, tar, rel_names):
     if has_init_node(net, src, tar, event) \
             and not same_index_event(net, src, tar, 0):
@@ -319,6 +329,7 @@ class Relations(Enum):
     PARTOF = (add_partof, )
     ENGAGES = (add_engagement, )
     INTERACTS = (add_interaction, )
+    LAST_INTERACTS = (add_last_interaction, )
 
 
 def all_relations():
