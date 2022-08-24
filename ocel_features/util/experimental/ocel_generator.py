@@ -46,9 +46,12 @@ def generate_events(global_options):
     root_events = [values for values in activity_options.values()
                    if values['interval_quantity']]
 
+    print("adding start events")
+    curr_interval = 0
     # traverse through event log timeframe, add root events
     while curr_time < time_end:
-        print("adding start events")
+        print(f"executing interval: {curr_interval} -> {curr_time}")
+        curr_interval = curr_interval + 1
         # add new root events
         generate_root_events(global_options, root_events, curr_time)
         # print_debug(global_options)
@@ -88,7 +91,7 @@ def generate_new_event(activity, input_objects, curr_time, interval,
     if (output_obj := activity['output_obj']):
         for ot, freq in output_obj.items():
             if not isinstance(freq, int):
-                freq = round(compute_rvs(freq))
+                freq = max(1, round(compute_rvs(freq)))
             for i in range(freq):
                 oid, new_object = generate_new_object(object_options[ot])
                 new_objects[oid] = new_object
@@ -100,8 +103,12 @@ def generate_new_event(activity, input_objects, curr_time, interval,
 
 def generate_new_object(object_type):
     new_object = {}
-    oid = f'{object_type["name"]}{object_type["counter"]}'
-    object_type['counter'] = object_type['counter'] + 1
+    oid = f'{object_type["name"]}0'
+    if 'counter' in object_type:
+        oid = f'{object_type["name"]}{object_type["counter"]}'
+        object_type['counter'] = object_type['counter'] + 1
+    else:
+        object_type['counter'] = 1
     new_object['ocel:type'] = object_type['name']
     new_object['ocel:ovmap'] = {}
 
@@ -141,6 +148,8 @@ def progress_active_events(go, curr_time):
     # curr_time: current time
 
     # setup. gather expired events
+    print(f'curr event dist: {Counter([x[1][1] for x in go["active_events"]])}')
+    go['active_events'].sort()
     expired_events = []
     for e in go['active_events']:
         if e[0] <= curr_time:
@@ -156,30 +165,34 @@ def progress_active_events(go, curr_time):
         else:
             break
 
-    go['active_events'] = go['active_events'][len(expired_events):]
+    go['active_events'] = go['active_events'][len(expired_events):] # we add back later if needed
     events = []
     readd_events = []
 
     # Create global representation for the expired events
-    expired_view = generate_expired_state_view(go,
-                                               expired_events, global_events)
+    # expired_view = generate_expired_state_view(go,
+    #                                            expired_events, global_events)
 
     # 1. execute transition for each event and object (create new objects too)
     for timestamp, active_event in expired_events:
+        print(f"Progressing: {active_event} at {timestamp}")
         process = go['processes'][active_event[0]]
         activity = active_event[1]
         objects = active_event[2]
         event_type = active_event[3]
 
         src_an_obj = process.nodes[activity]
-        successors = process.successors(activity)
+        successors = list(process.successors(activity))
+
+        if not successors:
+            continue
+
         remaining_objects = set()
 
         # if the current time does not suit the active time of the activity
         if not in_active_time(curr_time, src_an_obj['active_time']):
             readd_events.append((timestamp, active_event))
             continue
-
         # passthrough wait event types and convert service types to wait types
         # output: active_events = (timestamp, (process, act, obj, ev_type))
         if event_type == 'wait':
@@ -193,59 +206,91 @@ def progress_active_events(go, curr_time):
             for e in readd_new:
                 heapq.heappush(readd_events, e)
 
-        available_objects = generate_expired_state_view(go, active_events)
+        expired_view = generate_expired_state_view(go, active_events, global_events)
 
         # activate all wait types and add to events. update all active events
         # to service types
         for _, event in active_events:
+            print(f"activating: {event}")
             process = go['processes'][event[0]]
             activity, objects, event_type = event[1:]
+            # get all possible event combinations
 
-            input_objects = gather_objects(go, event, expired_view)
+            # pick event
 
+            # pick object
+
+
+            input_objects, readd_obj = gather_objects(process.nodes[activity], objects, expired_view, go)
+            pprint(input_objects)
+            # pprint(go["ot_dir"])
+            # validate that all input requirements are fulfilled
+            val = Counter([go["object_state"][x]["state"]["ocel:type"] for x in input_objects])
             if input_objects:
-                transition = generate_new_event(activity, input_objects,
-                                                curr_time)
-                apply_new_transition(go, transition)
+                # create new event
+                new_event, new_objs = generate_new_event(process.nodes[activity], input_objects,
+                                                curr_time, go["timeframe"][2], go["object_types"])
+
+                # update object state
+                if (lr := process.nodes[activity]["lock_relation"]):
+                    for action, items in lr:
+                        rel1 = [(k, v) for k, v in new_objs.items() if v["ocel:type"] == items[0]]
+                        rel2 = [(k, v) for k, v in new_objs.items() if v["ocel:type"] == items[1]]
+                        for r1 in rel1:
+                            for r2 in rel2:
+                                update_object_state(go, r1, r2, items)
+                                update_object_state(go, r2, r1, items)
+
+                #
+
+                go["log"]["ocel:events"][f'e{len(go["log"]["ocel:events"])}'] = new_event
+                go["log"]["ocel:objects"].update(new_objs)
+                print(new_event, new_objs)
+                # calculate new service time and add to active events
+                if process.nodes[activity]['service_time']:
+                    service_time = new_event["ocel:timestamp"] + timedelta(minutes=compute_rvs(process.nodes[activity]['service_time']))
+                else:
+                    service_time = new_event["ocel:timestamp"]
+
+                heapq.heappush(go["active_events"], (service_time,(event[0], event[1], input_objects, "service")))
             else:
-                active_event = (active_event[:])
-                heapq.heappush(readd_events, (timestamp, active_event))
-                continue
+                heapq.heappush(readd_events, (timestamp, tuple(active_events)))
 
-        # while (next_transition := get_next_transition(go, process,
-        #                                               active_event,
-        #                                               expired_view,
-        #                                               curr_time)):
-        #     new_event, new_objects = next_transition[0]  # to add to events
-        #     next_active = next_transition[1]
-        #     remaining_objects = next_transition[2]  # to add to readd events
+            if readd_obj:
+                event[2] = readd_obj
+                heapq.heappush(readd_events, (timestamp, tuple(active_event)))
+            # if active_event[1] == 'create order' and active_event[3] == 'service':
+                # if input() == "1":
+                #     pprint(go["log"]["ocel:events"])
 
-        #     # add new event to events
-        #     new_event_id = f'e{len(events)}'
-        #     events[new_event_id] = new_event
+    for re in readd_events:
+        heapq.heappush(go["active_events"], re)
+    # pprint(go["log"])
+    # pprint(go["active_events"])
+    # pprint(go["object_state"])
+    # input()
 
-        #     # update existing objects
-        #     for oid in input_obj:
-        #         update_object_values(state_update, src_an_obj, oid, new_event)
 
-        #     # add new objects to objects and state
-        #     for oid, o in new_objects.items():
-        #         state_update[oid] = [o, new_event['ocel:name'], dict()]
+def update_object_state(go, o1, o2, lock):
+    if o1[0] in go["object_state"]:
+        go['object_state'][o1[0]]['active_locks'].add(lock)
 
-        #     # update active events
-        #     heapq.heappush(active_events, next_active)
+        if o2[1]["ocel:type"] in go["object_state"][o1[0]]['locked_objects']:
+            go["object_state"][o1[0]]['locked_objects'][o2[1]["ocel:type"]].add(o1[0])
+        else:
+            go["object_state"][o1[0]]['locked_objects'][o2[1]["ocel:type"]] = {o1[0]}
 
-        # if remaining_objects:
-        #     readd_events.append((curr_time, (src_an, remaining_objects)))
-
-        # # 3. readd any events that did not manage to process all objects
-        # go['active_events'] = readd_events + go['active_events']
-        # go['log']['ocel:events'].extend(events)
+    else:
+        go['object_state'][o1[0]] = {'state': o2[1],
+                                     'locked_objects': {o2[1]["ocel:type"]: {o2[0]}},
+                                     'lock_quantity': {o2[1]["ocel:type"]: 1},
+                                     'active_locks': {lock}}
 
 
 def generate_successors(process, timestamp, active_event, successors):
     # loop
-    random_successor = np.random.permutation(successors)[0]
+    successor_list = list(successors)
+    random_successor = np.random.choice(successor_list)
     new_events = []
     readd_events = []
     flow_relation = process.nodes[random_successor]['flow_relation']
@@ -269,7 +314,7 @@ def generate_successors(process, timestamp, active_event, successors):
                 wait_time = process.nodes[act]['wait_time']
 
                 if wait_time:
-                    new_timestamp = timestamp + int(compute_rvs(wait_time))
+                    new_timestamp = timestamp + timedelta(minutes=compute_rvs(wait_time))
                     new_event = (new_timestamp, new_active_event)
                     if new_timestamp > timestamp:
                         readd_events.append(new_event)
@@ -283,9 +328,9 @@ def generate_successors(process, timestamp, active_event, successors):
         new_active_event = list(active_event)
         new_active_event[1] = random_successor
         new_active_event[3] = 'wait'
-        wait_time = process.nodes[act]['wait_time']
+        wait_time = process.nodes[random_successor]['wait_time']
         if wait_time:
-            new_timestamp = timestamp + int(compute_rvs(wait_time))
+            new_timestamp = timestamp + timedelta(minutes=compute_rvs(wait_time))
             readd_events.append((new_timestamp, new_active_event))
         else:
             new_events.append((timestamp, new_active_event))
@@ -293,8 +338,89 @@ def generate_successors(process, timestamp, active_event, successors):
     return new_events, readd_events
 
 
-def gather_objects(act_obj, input_obj, expired_view):
-    pass
+def get_obj_quantity_view(go, activity_dict, input_objects):
+    existing_objs = {}
+
+    for ot, quantity in activity_dict["input_obj"].items():
+        if isinstance(ot, tuple):
+            locked_objects = {x for x in input_objects if ot in go["object_state"][x]['active_locks']}
+            # locks = {ot[0]: [], ot[1]: []}
+            # for lo in locked_objects:
+            #     locks[go["object_state"][lo]["state"]["ocel:type"]].append(lo)
+            if locked_objects:
+                existing_objs[ot] = len(locked_objects) / 2
+        else:
+            objs = {x for x in input_objects if go["object_state"][x]["state"]["ocel:type"]}
+            if objs:
+                existing_objs[ot] = len(objs)
+
+    return existing_objs
+
+
+def test_input_obj_sufficiency(go, required, situation, input_objects):
+    for ot, quantity in required.items():
+        if quantity == "all":
+            locked_objects = {x for x in input_objects if ot in go["object_state"][x]['active_locks']}
+            quant = []
+            for o in locked_objects:
+                placement = 0 if ot[0] == go["object_state"][o]["state"]["ocel:type"] else 1
+                quant.append(len(go["object_state"][o]["locked_objects"][ot[1-placement]]))
+            if max(quant):
+                return False
+
+        elif quantity == "any":
+            if ot not in situation:
+                return False
+        else:
+            if ot not in situation or quantity < situation[ot]:
+                return False
+
+    return True
+
+
+def gather_objects(activity_dict, prev_objects, expired_view, go):
+    # 1. check if event is locked
+    # 2. if locked, pass locked objects along and check for remaining requirements
+    # 3. if not locked choose objects at random from the expired view
+
+    locked_types = [(x, q) for x, q in activity_dict["input_obj"].items() if isinstance(x, tuple)]
+    free_types = [(x, q) for x, q in activity_dict["input_obj"].items() if not isinstance(x, tuple)]
+
+    exp_view = expired_view[activity_dict["name"]]
+
+    unused_locked = set()
+    used_obj = set()
+
+    if activity_dict["object_relation"] == "locked":
+        for ot, quantity in locked_types:
+            locked_objects = {x for x in prev_objects if ot in go["object_state"][x]['active_locks']}
+            locks = {ot[0]: [], ot[1]: []}
+            for lo in locked_objects:
+                locks[go["object_state"][lo]["state"]["ocel:type"]].append(lo)
+            locked_objects = []
+            for l1 in locks[ot[0]]:
+                for l2 in locks[ot[1]]:
+                    locked_objects.append((l1, l2))
+
+            if locked_objects:
+                if quantity == "all":
+                    used_obj.update(*locked_objects)
+                elif isinstance(quantity, int):
+                    to_use = min(random.randint(1, quantity), len(locked_objects))
+                    used_obj.update(*locked_objects[:to_use])
+                    unused_locked.update(*locked_objects[to_use:])
+                else:
+                    to_use = random.randint(1, len(locked_objects)-1)
+                    used_obj.update(*locked_objects[:to_use])
+                    unused_locked.update(*locked_objects[to_use:])
+
+    for ot, quantity in free_types:
+        ot_list = [x for x in exp_view if x in go["ot_dir"][ot]]
+        random.shuffle(ot_list)
+        if ot_list:
+            used_obj |= set(ot_list[:quantity])
+
+    return used_obj, unused_locked
 
 
 def obj_marking_key(go, objs):
@@ -312,10 +438,10 @@ def generate_expired_state_view(go, expired_events, global_events):
     # get all global objects to add to all activity names
     global_objects = set()
     for global_event in global_events:
-        global_objects |= global_event[2]
+        global_objects |= global_event[1][2]
 
     for expired_event in expired_events:
-        process, activity_name, remaining_objects, _ = expired_event
+        process, activity_name, remaining_objects, _ = expired_event[1]
         if activity_name not in expired_global_view:
             expired_global_view[activity_name] = global_objects
 
@@ -429,7 +555,6 @@ def generate_ocel(global_options):
     global_options['object_state'] = {}
     global_options['ot_dir'] = {ot: set()
                                 for ot in global_options['object_types']}
-    print(global_options['ot_dir'])
     global_options['active_events'] = []
 
     # setup log and dictionary objects
@@ -521,9 +646,11 @@ def in_active_time(curr_time, active_tuple):
 
 
 def compute_rvs(prob_tuple):
-    f, params = prob_tuple
-
-    return f.rvs(**params)
+    if isinstance(prob_tuple, tuple):
+        f, params = prob_tuple
+        return f.rvs(**params)
+    else:
+        return random.choice(list(prob_tuple))
 
 
 employee = {
@@ -584,7 +711,7 @@ package = {
     #                ('unload package', 'store package'),
     #                ('load package', 'transfer package'),
     #                ('transfer package', 'unload package')]),
-    "properties": {"_completed": False}
+    "properties": {"_completed": {False}}
 }
 
 route = {
@@ -686,8 +813,8 @@ accept_order = {
     "active_time": None,
     "wait_time": None,
     "service_time": (weibull_min, {"c": 2, "loc": 100, "scale": 100}),
-    "input_obj": {frozenset({"order", "item"}): "all"},
-    "output_obj": {"item": (expon, {"scale": 0.5}), "order": 1},
+    "input_obj": {("order", "item"): "all"},
+    "output_obj": None,
     "flow_relation": None,
     "lock_relation": None,
     "object_relation": "locked",
@@ -701,7 +828,7 @@ check_availability = {
     "active_time": (time(9), time(17), list(range(5))),
     "wait_time": None,
     "service_time": (weibull_min, {"c": 2, "loc": 10, "scale": 20}),
-    "input_obj": {"employee": 1, "item": 1, "order": 1},
+    "input_obj": {"employee": 1, ("order", "item"): 1},
     "output_obj": None,
     "flow_relation": None,
     "lock_relation": None,
@@ -716,7 +843,7 @@ receive_payment = {
     "active_time": None,
     "wait_time": (weibull_min, {"c": 2, "loc": 10, "scale": 20}),
     "service_time": None,
-    "input_obj": {"system": 1, "item": "Any", "order": 1},
+    "input_obj": {"system": 1, ("order", "item"): "all"},
     "output_obj": None,
     "flow_relation": None,
     "lock_relation": None,
@@ -733,7 +860,7 @@ pick_item = {
     "active_time": (time(9), time(17), list(range(5))),
     "wait_time": None,
     "service_time": (weibull_min, {"c": 2, "loc": 10, "scale": 100}),
-    "input_obj": {"employee": 1, "item": 1, "order": 1},
+    "input_obj": {"employee": 1, ("order", "item"): 1},
     "output_obj": None,
     "flow_relation": None,
     "lock_relation": None,
@@ -763,7 +890,7 @@ store_package = {
     "active_time": None,
     "wait_time": None,
     "service_time": (weibull_min, {"c": 2, "loc": 10, "scale": 100}),
-    "input_obj": {"employee": 1, "item": 1},
+    "input_obj": {"employee": 1, ("item", "package"): 1},
     "output_obj": None,
     "flow_relation": None,
     "lock_relation": None,
@@ -808,7 +935,7 @@ load_package = {
     "active_time": None,
     "wait_time": None,
     "service_time": (weibull_min, {"c": 2, "loc": 5, "scale": 10}),
-    "input_obj": {"package": "All", "route": 1},
+    "input_obj": {("package", "route"): "All"},
     "output_obj": None,
     "flow_relation": None,
     "lock_relation": None,
@@ -823,7 +950,7 @@ fail_delivery = {
     "active_time": None,
     "wait_time": None,
     "service_time": (weibull_min, {"c": 2, "loc": 20, "scale": 50}),
-    "input_obj": {"package": "Any", "route": 1},
+    "input_obj": {("package", "route"): "Any"},
     "output_obj": None,
     "flow_relation": None,
     "lock_relation": None,
@@ -838,7 +965,7 @@ deliver_package = {
     "active_time": None,
     "wait_time": None,
     "service_time": (weibull_min, {"c": 2, "loc": 20, "scale": 50}),
-    "input_obj": {"package": "Any", "route": 1},
+    "input_obj": {("package", "route"): "Any"},
     "output_obj": None,
     "flow_relation": None,
     "lock_relation": None,
@@ -853,7 +980,7 @@ unload_package = {
     "active_time": None,
     "wait_time": None,
     "service_time": (weibull_min, {"c": 2, "loc": 2, "scale": 3}),
-    "input_obj": {"package": "All", "route": 1},
+    "input_obj": {("package", "route"): "All"},
     "output_obj": None,
     "flow_relation": {"and": [('store package', 'end route')]},
     "lock_relation": None,
@@ -869,7 +996,7 @@ end_route = {
     "active_time": None,
     "wait_time": None,
     "service_time": (weibull_min, {"c": 2, "loc": 0, "scale": 1}),
-    "input_obj": {"package": "All", "route": 1},
+    "input_obj": {("package", "route"): "all"},
     "output_obj": None,
     "flow_relation": None,
     "lock_relation": None,
@@ -886,7 +1013,7 @@ def print_debug(global_options):
 if __name__ == '__main__':
     from pprint import pprint
     process = create_example_process()
-    global_options = {"timeframe": (datetime(2022, 5, 1),
+    global_options = {"timeframe": (datetime(2022, 5, 1, 8),
                                     datetime(2022, 5, 31),
                                     timedelta(minutes=5)),
                       "time_unit": "minutes",
