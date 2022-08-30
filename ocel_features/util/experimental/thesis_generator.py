@@ -7,6 +7,8 @@ from pprint import pprint
 
 def generate_sample_log(config):
     log = generate_empty_log()
+    log["ocel:events"] = []
+
     execute_order_stage(config, log)
     # pprint(log)
     print(len(log["ocel:objects"]), len(log["ocel:events"]))
@@ -15,30 +17,58 @@ def generate_sample_log(config):
     print(len(log["ocel:objects"]), len(log["ocel:events"]))
 
     execute_route_stage(config, log)
-    print(len(log["ocel:objects"]), len(log["ocel:events"]))
+
+    # sys_obj = generate_empty_object(system)
+    log['ocel:objects']['SYS'] = generate_empty_object("system")
+    sys_event = generate_default_event(create_system)
+    sys_event["ocel:timestamp"] = datetime.min
+    sys_event["ocel:omap"] = {'SYS'}
+    log["ocel:events"].append(sys_event)
+
+    event_dict = {}
+    log["ocel:events"] = sorted(log["ocel:events"], key=lambda x: x["ocel:timestamp"])
+    for i, e in enumerate(log["ocel:events"]):
+        e["ocel:omap"] = list(e["ocel:omap"])
+        event_dict[f'e{i}'] = e
+
+    for o, v in log["ocel:objects"].items():
+        if "ocel:omap" in v:
+            del v["ocel:omap"]
+
+    log['ocel:events'] = event_dict
+    print(len(log["ocel:objects"]), len(log["ocel:events"]), "\n")
 
     print(f'order #: {len([x for x in log["ocel:objects"] if x[0] == "o"])}')
     print(f'item #: {len([x for x in log["ocel:objects"] if x[0] == "i"])}')
     print(f'package #: {len([x for x in log["ocel:objects"] if x[0] == "p"])}')
-    print(f'route #: {len([x for x in log["ocel:objects"] if x[0] == "r"])}')
+    print(f'route #: {len([x for x in log["ocel:objects"] if x[0] == "r"])}\n')
 
     items_packed = set()
-    for x in log["ocel:events"]:
-        if x["ocel:activity"] == "pack items":
-            items_packed |= {x for x in x["ocel:omap"] if x[0] == 'i'}
+    for k, v in log["ocel:events"].items():
+        if v["ocel:activity"] == "pack items":
+            items_packed |= {x for x in v["ocel:omap"] if x[0] == 'i'}
     print("items packed:", len(items_packed))
 
     packages_delivered = set()
     items_delivered = set()
-    for x in log["ocel:events"]:
-        if x["ocel:activity"] == "load package":
-            packages_delivered |= {x for x in x["ocel:omap"] if x[0] == 'p'}
-            items_delivered |= {x for x in x["ocel:omap"] if x[0] == 'i'}
+    failed_deliveries = set()
+    delivered_events = set()
+    for k, v in log["ocel:events"].items():
+        if v["ocel:activity"] == "load package":
+            packages_delivered |= {x for x in v["ocel:omap"] if x[0] == 'p'}
+            items_delivered |= {x for x in v["ocel:omap"] if x[0] == 'i'}
+        elif v["ocel:activity"] == "fail delivery":
+            failed_deliveries.add(k)
+        elif v["ocel:activity"] == "deliver package":
+            delivered_events.add(k)
 
     print("packages delivered:", len(packages_delivered))
-    print("items delivered:", len(items_delivered))
+    print("items delivered:", len(items_delivered), "\n")
+    print("fail delivery event #:", len(failed_deliveries))
+    print("success delivery event #:", len(delivered_events))
 
-    # ocel.export_log(log, "/home/johannes/Desktop/test.jsonocel")
+    if len(sys.argv) == 2:
+        ocel.export_log(log, sys.argv[1])
 
     # import matplotlib.pyplot as plt
     # plt.hist([x["ocel:timestamp"] for x in log["ocel:events"]])
@@ -50,7 +80,6 @@ def execute_order_stage(config, log):
     objects = {}
     order_count = 0
     item_count = 0
-    item_return = []
     log_start, log_end = config["start"], config["end"]
     current_day = log_start.weekday()
     employees = ["Josh", "Jacob", "Julia", "Jenny"]
@@ -58,7 +87,14 @@ def execute_order_stage(config, log):
     for e in employees:
         new_empl = generate_empty_object("employee")
         new_empl["ocel:ovmap"] = generate_object_ovmap(employee)
+        # add unique event
+        new_empl_event = generate_default_event(create_employee)
+        new_empl_event["ocel:timestamp"] = datetime.min
+        new_empl_event["ocel:omap"] = {e}
+        events.append(new_empl_event)
+        # add unique object
         order_employees[e] = new_empl
+        objects[e] = new_empl
 
     day_start, day_end = config["day_order_timeframe"]
     timerange = (day_end - day_start).total_seconds()
@@ -89,7 +125,7 @@ def execute_order_stage(config, log):
             order_count += 1
 
             item_number = 0
-            if new_order["ocel:ovmap"]["Priority"] == 1:
+            if new_order["ocel:ovmap"]["Priority"] == 3:
                 item_number = random.choices([1, 2, 3], weights=(10, 5, 1))[0]
             elif new_order["ocel:ovmap"]["Priority"] == 2:
                 item_number = random.choices([1, 2, 3], weights=(5, 10, 1))[0]
@@ -157,9 +193,8 @@ def execute_order_stage(config, log):
                 pi["ocel:omap"] = {order_objects["employee"], order_objects["order"], item_iter}
                 events.append(pi)
 
-
-        log["ocel:events"] = events
-        log["ocel:objects"] = objects
+    log["ocel:events"].extend(events)
+    log["ocel:objects"] |= objects
 
 
 def execute_package_stage(config, log):
@@ -173,7 +208,14 @@ def execute_package_stage(config, log):
     for e in employees:
         new_empl = generate_empty_object("employee")
         new_empl["ocel:ovmap"] = generate_object_ovmap(employee)
+        # add unique event
+        new_empl_event = generate_default_event(create_employee)
+        new_empl_event["ocel:timestamp"] = datetime.min
+        new_empl_event["ocel:omap"] = {e}
+        events.append(new_empl_event)
+        # add unique object
         order_employees[e] = new_empl
+        objects[e] = new_empl
 
     day_start, day_end = config["day_package_timeframe"]
     timerange = (day_end - day_start).total_seconds()
@@ -206,15 +248,6 @@ def execute_package_stage(config, log):
                                for _ in range(quantity)]
 
         for times in package_start_times:
-            pick_employee = random.choices(employees, weights=(11, 7))[0]
-            package_objects = {"order": None, "item": set(), "employee": pick_employee}
-            new_package = generate_empty_object("package")
-            new_package["ocel:ovmap"] = generate_object_ovmap(package)
-            new_package_id = f'p{package_count}'
-            objects[new_package_id] = new_package
-            package_objects["package"] = new_package_id
-            package_count += 1
-
             # generate timestamp for start of order
             timestamp_pack = log_start + day_start + timedelta(days=day, seconds=times)
 
@@ -226,8 +259,20 @@ def execute_package_stage(config, log):
                     expired_length = i
                     break
 
+            if expired_length == 0:
+                continue
+
             expired_items = item_sort[:expired_length]
             item_sort = item_sort[expired_length:]
+
+            pick_employee = random.choices(employees, weights=(11, 7))[0]
+            package_objects = {"order": None, "item": set(), "employee": pick_employee}
+            new_package = generate_empty_object("package")
+            new_package["ocel:ovmap"] = generate_object_ovmap(package)
+            new_package_id = f'p{package_count}'
+            objects[new_package_id] = new_package
+            package_objects["package"] = new_package_id
+            package_count += 1
 
             # sort items based on destination, age and priority
             dest = {k: [] for k in range(10)}
@@ -257,12 +302,13 @@ def execute_package_stage(config, log):
 
             package_objects["item"] = items_add
 
-            # readd unused items
+            # readd unused items_add
             for exp_item in expired_items:
                 if exp_item[1][1] not in items_add:
                     item_sort.append(exp_item)
 
             objects[package_objects["package"]]["ocel:ovmap"]["Priority"] = package_prio
+            objects[package_objects["package"]]["ocel:ovmap"]["Capacity"] = len(items_add)
             objects[package_objects["package"]]["ocel:ovmap"]["Destination"] = max_prio_dest
             objects[package_objects["package"]]["ocel:ovmap"]["weight(kg)"] = items_weight
 
@@ -297,13 +343,19 @@ def execute_route_stage(config, log):
     for e in employees:
         new_empl = generate_empty_object("employee")
         new_empl["ocel:ovmap"] = generate_object_ovmap(employee)
+        # add unique event
+        new_empl_event = generate_default_event(create_employee)
+        new_empl_event["ocel:timestamp"] = datetime.min
+        new_empl_event["ocel:omap"] = {e}
+        events.append(new_empl_event)
+        # add unique object
         order_employees[e] = new_empl
+        objects[e] = new_empl
 
     # gather neccessary item info
     seen_packages = set()
     package_info = []
-    events.sort()
-    for ev in (log["ocel:events"] + events)[::-1]:
+    for ev in log["ocel:events"][::-1]:
         if ev["ocel:activity"] == store_package["name"] and frozenset(ev["ocel:omap"]) not in seen_packages:
             package_items = {i for i in ev["ocel:omap"] if i[0] == 'i'}
             for obj in ev["ocel:omap"]:
@@ -424,7 +476,7 @@ def execute_route_stage(config, log):
                     timestamp_travel = time_in_bounds(timestamp_travel + timedelta(minutes=weibull_min.rvs(c=1,loc=10, scale=2)), day_start, day_end)
 
                 # probability of failure
-                prio_addition = ((package_prio / len(route_objects["package"])) / 3) * 0.2
+                prio_addition = (log["ocel:objects"][p]["ocel:ovmap"]["Priority"] / log["ocel:objects"][p]["ocel:ovmap"]["Capacity"]) / 3 * 0.2
                 prio_bern = 0.7 + prio_addition
                 if bernoulli.rvs(prio_bern):
                     # success
@@ -498,14 +550,18 @@ def generate_empty_object(otype):
 
 
 def generate_empty_log():
-    log = {'ocel:objects': {},
-           'ocel:events': {},
+    log = {
            'ocel:global-log': {'ocel:version': '0.1',
                                'ocel:ordering': 'timestamp',
-                               'ocel:attribute-names': {""},
-                               'ocel:object-types': {"system", "employee",
+                               'ocel:attribute-names': [""],
+                               'ocel:object-types': ["system", "employee",
                                                      "order", "item",
-                                                     "package", "route"}}
+                                                     "package", "route"]
+                               },
+           'ocel:global-object': {},
+           'ocel:global-event': {},
+           'ocel:events': {},
+           'ocel:objects': {}
            }
 
     return log
@@ -520,16 +576,16 @@ def compute_rvs(prob_tuple):
 
 
 generation_config = {
-            "start": datetime(2022, 5, 1),
-            "end": datetime(2022, 5, 31),
+            "start": datetime(2022, 2, 1),
+            "end": datetime(2022, 10, 1),
             "day_order_quantity": ((norm, {"loc": 100, "scale": 10}), (arcsine, {})),
             "day_order_timeframe": (timedelta(hours=8), timedelta(hours=18)),
-            "day_package_quantity": ((expon, {"loc": 8}), (arcsine, {})),
+            "day_package_quantity": ((expon, {"loc": 100}), (arcsine, {})),
             "day_package_timeframe": (timedelta(hours=12), timedelta(hours=18)),
-            "package_max_weight": 10,
-            "day_route_quantity": ([3, 4, 5, 6], (arcsine, {})),
+            "package_max_weight": 15,
+            "day_route_quantity": ([4, 5, 6], (arcsine, {})),
             "day_route_timeframe": (timedelta(hours=6), timedelta(hours=12)),
-            "route_max_weight": 100
+            "route_max_weight": 200
         }
 
 
@@ -578,200 +634,92 @@ route = {
 
 setup_order = {
     "name": "setup order",
-    "wait_time": None,
-    "service_time": (uniform, {"loc": 1, "scale": 0}),
     "properties": None
 }
 
 create_order = {
     "name": "create order",
-    "wait_time": None,
-    "service_time": (weibull_min, {"c": 2, "loc": 100, "scale": 100}),
     "properties": None
 }
 
 accept_order = {
     "name": "accept order",
-    "wait_time": None,
-    "service_time": (weibull_min, {"c": 2, "loc": 100, "scale": 100}),
     "properties": None
 }
 
 check_availability = {
     "name": "check availability",
-    "wait_time": None,
-    "service_time": (weibull_min, {"c": 2, "loc": 10, "scale": 20}),
     "properties": None
 }
 
 send_invoice = {
-    "name": "send_invoice",
+    "name": "send invoice",
     "properties": None
 }
 
 receive_payment = {
-    "process_name": "delivery",
     "name": "receive payment",
-    "interval_quantity": None,
-    "active_time": None,
-    "wait_time": (weibull_min, {"c": 2, "loc": 10, "scale": 20}),
-    "service_time": None,
-    "input_obj": {"system": 1, ("order", "item"): "all"},
-    "output_obj": None,
-    "flow_relation": None,
-    "lock_relation": None,
-    "object_relation": "locked",
     "properties": {'payment type': {'credit card', 'debit card',
                                     'bank transfer'}
                    }
 }
 
 pick_item = {
-    "process_name": "delivery",
     "name": "pick item",
-    "interval_quantity": None,
-    "wait_time": None,
-    "service_time": (weibull_min, {"c": 2, "loc": 10, "scale": 100}),
-    "input_obj": {"employee": 1, ("order", "item"): 1},
-    "output_obj": None,
-    "flow_relation": None,
-    "lock_relation": None,
-    "object_relation": "locked",
     "properties": None
 }
 
 pack_items = {
-    "process_name": "delivery",
     "name": "pack items",
-    "interval_quantity": None,
-    "wait_time": None,
-    "service_time": (weibull_min, {"c": 2, "loc": 10, "scale": 100}),
-    "input_obj": {"employee": 1, "item": 4},
-    "output_obj": {"package": 1},
-    "flow_relation": None,
-    "lock_relation": {('lock', ('item', 'package'))},
-    "object_relation": None,
     "properties": None
 }
 
 store_package = {
-    "process_name": "delivery",
     "name": "store package",
-    "interval_quantity": None,
-    "active_time": None,
-    "wait_time": None,
-    "service_time": (weibull_min, {"c": 2, "loc": 10, "scale": 100}),
-    "input_obj": {"employee": 1, ("item", "package"): 1},
-    "output_obj": None,
-    "flow_relation": None,
-    "lock_relation": None,
-    "object_relation": "locked",
     "properties": None
 }
 
 setup_route = {
-    "process_name": "delivery",
     "name": "setup route",
-    "interval_quantity": (bernoulli, {"p": 0.25}),
-    "wait_time": None,
-    "service_time": (uniform, {"loc": 1, "scale": 0}),
-    "input_obj": None,
-    "output_obj": None,
-    "flow_relation": None,
-    "lock_relation": None,
-    "object_relation": None,
     "properties": None
 }
 
 start_route = {
-    "process_name": "delivery",
     "name": "start route",
-    "interval_quantity": None,
-    "active_time": None,
-    "wait_time": None,
-    "service_time": (uniform, {"loc": 10, "scale": 100}),
-    "input_obj": {"employee": 1, "package": "Any", "route": 1},
-    "output_obj": {"route": 1},
-    "flow_relation": None,
-    "lock_relation": {('lock', ('package', 'route'))},
-    "object_relation": None,
     "properties": None
 }
 
 load_package = {
-    "process_name": "delivery",
     "name": "load package",
-    "interval_quantity": None,
-    "active_time": None,
-    "wait_time": None,
-    "service_time": (weibull_min, {"c": 2, "loc": 5, "scale": 10}),
-    "input_obj": {("package", "route"): "All"},
-    "output_obj": None,
-    "flow_relation": None,
-    "lock_relation": None,
-    "object_relation": "locked",
     "properties": None
 }
 
 fail_delivery = {
-    "process_name": "delivery",
     "name": "fail delivery",
-    "interval_quantity": None,
-    "active_time": None,
-    "wait_time": None,
-    "service_time": (weibull_min, {"c": 2, "loc": 20, "scale": 50}),
-    "input_obj": {("package", "route"): "Any"},
-    "output_obj": None,
-    "flow_relation": None,
-    "lock_relation": None,
-    "object_relation": "locked",
     "properties": {"_completed": {True}}
 }
 
 deliver_package = {
-    "process_name": "delivery",
     "name": "deliver package",
-    "interval_quantity": None,
-    "active_time": None,
-    "wait_time": None,
-    "service_time": (weibull_min, {"c": 2, "loc": 20, "scale": 50}),
-    "input_obj": {("package", "route"): "Any"},
-    "output_obj": None,
-    "flow_relation": None,
-    "lock_relation": None,
-    "object_relation": "locked",
     "properties": {"_completed": {True}}
 }
 
 unload_package = {
-    "process_name": "delivery",
     "name": "unload package",
-    "interval_quantity": None,
-    "active_time": None,
-    "wait_time": None,
-    "service_time": (weibull_min, {"c": 2, "loc": 2, "scale": 3}),
-    "input_obj": {("package", "route"): "All"},
-    "output_obj": None,
-    "flow_relation": {"and": [('store package', 'end route')]},
-    "lock_relation": None,
-    "object_relation": "locked",
-    "constraints": [('package', '_completed', lambda x: x is True)],
     "properties": None
 }
 
 end_route = {
-    "process_name": "delivery",
     "name": "end route",
-    "interval_quantity": None,
-    "active_time": None,
-    "wait_time": None,
-    "service_time": (weibull_min, {"c": 2, "loc": 0, "scale": 1}),
-    "input_obj": {("package", "route"): "all"},
-    "output_obj": None,
-    "flow_relation": None,
-    "lock_relation": None,
-    "object_relation": "locked",
-    "constraints": [('package', '_completed', lambda x: x is True)],
+    "properties": None
+}
+
+create_employee = {
+    "name": "create employee",
+    "properties": None
+}
+create_system = {
+    "name": "create system",
     "properties": None
 }
 

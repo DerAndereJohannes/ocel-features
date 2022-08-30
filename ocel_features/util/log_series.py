@@ -37,6 +37,11 @@ def activity_count(series, log, params):
     return len(series)
 
 
+def activity_subset_count(series, log, params):
+    return len([1 for v in log['ocel:events'].values()
+                if v['ocel:activity'] in params['an_types']])
+
+
 def total_obj_count(series, log, params):
     return sum([len(series[e]['ocel:omap']) for e in series])
 
