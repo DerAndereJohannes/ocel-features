@@ -27,7 +27,7 @@ def create_multi_graph(log, relations):
     for i, event_id in enumerate(ocel_events):
         event = ocel_events[event_id]
 
-        if not i % 1000:
+        if not i % 10000:
             print(f'{i}/{len(ocel_events)} events processed.')
 
         for oid in event['ocel:omap']:

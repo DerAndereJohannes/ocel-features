@@ -82,7 +82,7 @@ def execute_order_stage(config, log):
     item_count = 0
     log_start, log_end = config["start"], config["end"]
     current_day = log_start.weekday()
-    employees = ["Josh", "Jacob", "Julia", "Jenny"]
+    employees = ["Jenny", "Jacob", "Julia", "Josh"]
     order_employees = {}
     for e in employees:
         new_empl = generate_empty_object("employee")
@@ -115,7 +115,7 @@ def execute_order_stage(config, log):
 
         for times in order_start_times:
             # generate order objects
-            pick_employee = random.choices(employees, weights=(7, 10, 11, 9))[0]
+            pick_employee = random.choices(employees, weights=(7, 9, 11, 3))[0]
             order_objects = {"order": None, "item": set(), "employee": pick_employee}
             new_order = generate_empty_object("order")
             new_order["ocel:ovmap"] = generate_object_ovmap(order)
@@ -135,6 +135,7 @@ def execute_order_stage(config, log):
             for i in range(item_number):
                 new_item = generate_empty_object("item")
                 new_item["ocel:ovmap"] = generate_object_ovmap(item)
+                new_item["ocel:ovmap"]['cost($)'] = compute_rvs((norm, {"loc": 500+(500*(0.333*new_order['ocel:ovmap']['Priority'])), "scale": 100}))
                 new_item_id = f'i{item_count}'
                 objects[new_item_id] = new_item
                 order_objects["item"].add(new_item_id)
@@ -250,6 +251,11 @@ def execute_package_stage(config, log):
         for times in package_start_times:
             # generate timestamp for start of order
             timestamp_pack = log_start + day_start + timedelta(days=day, seconds=times)
+            pick_employee = random.choices(employees, weights=(9, 7))[0]
+
+            if datetime(2022, 5, 1) < timestamp_pack < datetime(2022, 6, 14) and pick_employee == 'Penelope':
+                if not bernoulli.rvs(0.3):
+                    continue
 
             # extract oldest ready items
             item_sort.sort()
@@ -265,7 +271,6 @@ def execute_package_stage(config, log):
             expired_items = item_sort[:expired_length]
             item_sort = item_sort[expired_length:]
 
-            pick_employee = random.choices(employees, weights=(11, 7))[0]
             package_objects = {"order": None, "item": set(), "employee": pick_employee}
             new_package = generate_empty_object("package")
             new_package["ocel:ovmap"] = generate_object_ovmap(package)
@@ -278,8 +283,8 @@ def execute_package_stage(config, log):
             dest = {k: [] for k in range(10)}
             for exp_item in expired_items:
                 curr_order = log["ocel:objects"][exp_item[1][0]]["ocel:ovmap"]
-                time_prio = min(0.4*(((((timestamp_pack - exp_item[0]).seconds / 3600) / 168)) * 3), 3)
-                prio_prio = 0.6 * curr_order["Priority"]
+                time_prio = 0.3 * min(((((timestamp_pack - exp_item[0]).seconds / 3600) / 168) * 3), 3)
+                prio_prio = 0.7 * curr_order["Priority"]
                 dest[curr_order["Destination"]].append((time_prio + prio_prio, exp_item[1][1]))
 
             dest_prio = {k: 0 for k in range(10)}
@@ -442,13 +447,20 @@ def execute_route_stage(config, log):
                     package_items[item_id] = prio_item[1][1]
                     packages_weight += package_weight
 
-            route_objects["package"] = packages_add
-            objects[new_route_id]["ocel:omap"] |= packages_add
+            if packages_weight < 50 or package_prio < 30:
+                packages_add = {}
+                del objects[new_route_id]
+            else:
+                route_objects["package"] = packages_add
+                objects[new_route_id]["ocel:omap"] |= packages_add
 
             # readd unused items
             for exp_item in expired_items:
                 if exp_item[1][0] not in packages_add:
                     package_info.append(exp_item)
+
+            if new_route_id not in objects:
+                continue
 
             # start route
             sr = generate_default_event(start_route)
@@ -465,6 +477,7 @@ def execute_route_stage(config, log):
                 lp = generate_default_event(load_package)
                 lp["ocel:timestamp"] = timestamp_load
                 lp["ocel:vmap"] = generate_object_ovmap(load_package)
+                lp["ocel:vmap"]['effort'] = max(compute_rvs((norm, {'loc': log['ocel:objects'][p]['ocel:ovmap']['weight(kg)'], 'scale': 0.5})), 1)
                 lp["ocel:omap"] = {new_route_id, p, route_objects["employee"]} | package_items[p]
                 events.append(lp)
 
@@ -476,8 +489,18 @@ def execute_route_stage(config, log):
                     timestamp_travel = time_in_bounds(timestamp_travel + timedelta(minutes=weibull_min.rvs(c=1,loc=10, scale=2)), day_start, day_end)
 
                 # probability of failure
-                prio_addition = (log["ocel:objects"][p]["ocel:ovmap"]["Priority"] / log["ocel:objects"][p]["ocel:ovmap"]["Capacity"]) / 3 * 0.2
-                prio_bern = 0.7 + prio_addition
+                prio_addition = (log["ocel:objects"][p]["ocel:ovmap"]["Priority"] / log["ocel:objects"][p]["ocel:ovmap"]["Capacity"]) / 3 * 0.3
+                prio_dest = 0.5
+                package_destination = int(log['ocel:objects'][p]['ocel:ovmap']['Destination'])
+
+                if package_destination <= 3:
+                    prio_dest *= 1
+                elif 3 < package_destination <= 5:
+                    prio_dest *= 0.8
+                else:
+                    prio_dest *= 0.5
+
+                prio_bern = 0.2 + prio_dest + prio_addition
                 if bernoulli.rvs(prio_bern):
                     # success
                     dp = generate_default_event(deliver_package)
@@ -576,11 +599,11 @@ def compute_rvs(prob_tuple):
 
 
 generation_config = {
-            "start": datetime(2022, 2, 1),
-            "end": datetime(2022, 10, 1),
-            "day_order_quantity": ((norm, {"loc": 100, "scale": 10}), (arcsine, {})),
+            "start": datetime(2022, 1, 1),
+            "end": datetime(2024, 1, 1),
+            "day_order_quantity": ((norm, {"loc": 90, "scale": 10}), (arcsine, {})),
             "day_order_timeframe": (timedelta(hours=8), timedelta(hours=18)),
-            "day_package_quantity": ((expon, {"loc": 100}), (arcsine, {})),
+            "day_package_quantity": ((expon, {"loc": 50}), (arcsine, {})),
             "day_package_timeframe": (timedelta(hours=12), timedelta(hours=18)),
             "package_max_weight": 15,
             "day_route_quantity": ([4, 5, 6], (arcsine, {})),
@@ -593,8 +616,8 @@ generation_config = {
 employee = {
     "name": "employee",
     "properties": {
+        "rating": (norm, {"loc": 100, "scale": 3}),
     }
-
 }
 
 system = {
@@ -608,7 +631,7 @@ order = {
     "properties": {
         "Priority": [1, 2, 3],
         "Destination": [x for x in range(10)],
-        "Client": [x for x in range(10)]*5+[x for x in range(40)]
+        "Client": [x for x in range(10)]*4+[x for x in range(30)]
     }
 }
 
@@ -616,13 +639,13 @@ item = {
     "name": "item",
     "properties": {
         "weight(kg)": (expon, {"loc": 3, "scale": 0.7}),
-            "cost($)": (norm, {"loc": 500, "scale": 100})
+        "Category": ['Electronics', 'Raw Material', 'Chemicals']
     }
 }
 
 package = {
     "name": "package",
-    "properties": {"_completed": {False}}
+    "properties": {"material": ['wood', 'card', 'plastic']}
 }
 
 route = {
@@ -639,54 +662,81 @@ setup_order = {
 
 create_order = {
     "name": "create order",
-    "properties": None
+    "properties": {
+        'effort': (norm, {'loc': 5, 'scale': 0.8}),
+        'cost': [1]
+    }
 }
 
 accept_order = {
     "name": "accept order",
-    "properties": None
+    "properties": {
+        'effort': (norm, {'loc': 2, 'scale': 0.2}),
+        'cost': [1]
+    }
 }
 
 check_availability = {
     "name": "check availability",
-    "properties": None
+    "properties": {
+        'effort': (norm, {'loc': 2, 'scale': 0.2}),
+    }
 }
 
 send_invoice = {
     "name": "send invoice",
-    "properties": None
+    "properties": {
+        'effort': (norm, {'loc': 5, 'scale': 0.5}),
+        'cost': [5]
+    }
 }
 
 receive_payment = {
     "name": "receive payment",
-    "properties": {'payment type': {'credit card', 'debit card',
-                                    'bank transfer'}
+    "properties": {
+        'payment type': {'credit card', 'debit card',
+                         'bank transfer'},
+        'effort': (norm, {'loc': 1, 'scale': 0.1}),
+        'cost': [3]
                    }
 }
 
 pick_item = {
     "name": "pick item",
-    "properties": None
+    "properties": {
+        'effort': (norm, {'loc': 10, 'scale': 3})
+        }
 }
 
 pack_items = {
     "name": "pack items",
-    "properties": None
+    "properties": {
+        'effort': (norm, {'loc': 30, 'scale': 5}),
+        'cost': [5]
+    }
 }
 
 store_package = {
     "name": "store package",
-    "properties": None
+    "properties": {
+        'effort': (norm, {'loc': 10, 'scale': 1}),
+        'cost': [5]
+    }
 }
 
 setup_route = {
     "name": "setup route",
-    "properties": None
+    "properties": {
+        # 'cost': [150]
+        }
 }
 
 start_route = {
     "name": "start route",
-    "properties": None
+    "properties": {
+        'effort': (norm, {'loc': 2, 'scale': 0.2}),
+        'cost': [150]
+    }
 }
 
 load_package = {
@@ -696,22 +746,33 @@ load_package = {
 
 fail_delivery = {
     "name": "fail delivery",
-    "properties": {"_completed": {True}}
+    "properties": {
+        'effort': (norm, {'loc': 10, 'scale': 0.5}),
+        'cost': [50]
+    }
 }
 
 deliver_package = {
     "name": "deliver package",
-    "properties": {"_completed": {True}}
+    "properties": {
+        'effort': (norm, {'loc': 7, 'scale': 0.8}),
+        'cost': [10]
+    }
 }
 
 unload_package = {
     "name": "unload package",
-    "properties": None
+    "properties": {
+        'effort': (norm, {'loc': 10, 'scale': 1}),
+        'cost': [10]
+    }
 }
 
 end_route = {
     "name": "end route",
-    "properties": None
+    "properties": {
+        'effort': (norm, {'loc': 1, 'scale': 0.1})
+    }
 }
 
 create_employee = {
